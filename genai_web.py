@@ -28,30 +28,68 @@ MODEL = "mistral.mixtral-8x7b-instruct-v0:1"
 #MODEL = "meta.llama2-70b-chat-v1"
 #MODEL = "amazon.titan-tg1-large"
 
+
+HEADING_NO = "No."
+HEADING_NAME = "Test Name"
+HEADING_DESC = "Description"
+HEADING_ID = "External Test ID"
+HEADING_PRE = "Pre-Conditions"
+HEADING_STEPS = "Test Steps"
+HEADING_RESULTS = "Expected Results"
+
+
+def validate_element(input):
+   rc = False
+   if len(input) < 32:
+      rc = True
+
+   return rc
+
+def validate_service(input):
+   rc = False
+   if len(input) < 32: 
+      rc = True
+
+   return rc
+     
+
+     
+
 ############################################################
 #
 # Generates the tests
 #
 ############################################################
-def generate_tests(input, format, temperature, topp, max_tokens, num_tests,
+def generate_tests(element, service, format, temperature, topp, max_tokens, num_tests,
                    role, type):
 
-  # element = "HSS"
-  # service = "AVMR"
+  if not validate_element(element):
+    return "Invalid Element input"
+
+  if not validate_service(service):
+    return "Invalid Service input"
+    
 
   if num_tests >= TESTS_PER_CALL:
     num_tests_to_ask_for = TESTS_PER_CALL
   else:
     num_tests_to_ask_for = num_tests
 
-  pattern = re.compile("generate test cases for (.*) element including (.*)")
-  m = re.search(pattern, input)
-  if m:
-    element = m.group(1)
-    service = m.group(2)
+#  pattern = re.compile("generate test cases for (.*) element including (.*)")
+#  m = re.search(pattern, input)
+#  if m:
+#    element = m.group(1)
+#    service = m.group(2)
+
+  #f"generate test cases for {element} including {service}"
+  formatting_prefix = ""
+  formatting_suffix = ""
 
   if format == "HTML":
-    format = "The generated test cases must be presented as a HTML table using the <table> tag. Each test case must be a row in the table, delimited with the <tr></tr> tag; each of the headings will be a column, delimited with the <th></th> tag. You cannot use the | character. This table must be asthetically pleasing and easy to read"
+    #format = "The generated test cases must be presented as a HTML table using the <table> tag. Each test case must be a row in the table, delimited with the <tr></tr> tag; each of the headings will be a column, delimited with the <th></th> tag. You cannot use the | character. This table must be asthetically pleasing and easy to read"
+    format = "Each genrated test cases must be presented as row which will be added to a HTML table. Each row will be prefixed with the <tr> tag and suffixed with the </tr> tag; each of the headings will be a column, prefixed with the <th> tag and suffixed with the </th> tag. This table must be asthetically pleasing and easy to read. Do not use the tag <table>."
+    formatting_prefix = "<table>"
+    formatting_suffix = "</table>"
   elif format == "JSON":
     format = "The resultant test cases must be presented in JSON format. Each test case wil be a JSON object in the table, and each of the headings will be a key value pair."
   elif format == "CSV":
@@ -61,7 +99,7 @@ def generate_tests(input, format, temperature, topp, max_tokens, num_tests,
   elif format == "Text":
     format = "The resultant test cases must be presented in the format of a table in plain text"
 
-  prompt = f"""You are a {role}, {input} based on your knowledge. 
+  prompt = f"""You are a {role}. Generate unique test cases for {element} including the service {service} based on your knowledge. 
 
    There should be {num_tests_to_ask_for} test cases.
 
@@ -69,30 +107,32 @@ def generate_tests(input, format, temperature, topp, max_tokens, num_tests,
 
    {format}
    
-   The test cases must have the following column headings: No., Test Name, Description, External Test ID, Pre-conditions, Test Steps, and Expected Results. 
+   The test cases must have the following column headings: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS}. 
 
-   'No.' is shorthand for number. This should be a unique integer for each test case, starting from 1 and incrementing by for each test case. 
+   '{HEADING_NO}' is shorthand for number. This should be a unique integer for each test case, starting from 1 and incrementing by for each test case. 
    
-   The Test Name should be a useful short description of the test. The Description should be summary of the test and should end in -{element}. The external test id must be an alpha-numeric key, unique for each test. The Test Steps must describe clearly how to execute the test and each step shall be numbered. The expected results field must correspond to the test steps, with an expected outcome for each step enumberated step. 
-   
-     
+   The {HEADING_NAME} should be a useful short description of the test. The {HEADING_DESC} should be summary of the test and should end in -{element}. The {HEADING_ID} must be an alpha-numeric key, unique for each test. The {HEADING_PRE} field must describe and preconditions needed before the tests can be executed. The {HEADING_STEPS} field must describe clearly how to execute the test and each step shall be numbered. The {HEADING_RESULTS} field must correspond to the test steps, with an expected outcome for each step enumberated step. 
+
+   Do not use the , character in any of the output.
    
    """
-
-  output = ""
+  
 
   tests_remaining = num_tests
+  output = ""
   while tests_remaining > 0:
-    output += send_query(prompt, session_id, temperature, topp, max_tokens)
+    query_output = send_query(prompt, session_id, temperature, topp, max_tokens)
+    print("QOUTPUT:" + query_output)
+    output += query_output
 
     tests_remaining -= num_tests_to_ask_for
     if tests_remaining >= TESTS_PER_CALL:
       num_tests_to_ask_for = TESTS_PER_CALL
     else:
       num_tests_to_ask_for = tests_remaining
-    prompt = f"Generate {num_tests_to_ask_for} more test cases in the same format."
+    prompt = f"Generate {num_tests_to_ask_for} more unique test cases using the same requirements. All of the same fields must be included. The fields {HEADING_NO} and {HEADING_ID} should continue incrementing from the last logical integer"
 
-  return output
+  return f"{formatting_prefix}{output}{formatting_suffix}"
 
 ############################################################
 #
@@ -102,7 +142,6 @@ def generate_tests(input, format, temperature, topp, max_tokens, num_tests,
 def send_query(prompt, session_id, temperature, topp, max_tokens):
 
   print("Session ID IN :" + str(session_id))
-  print("Format      :" + str(format))
   print("Temperature :" + str(temperature))
   print("TopP        :" + str(topp))
   print("Prompt      :" + str(prompt))
@@ -117,7 +156,7 @@ def send_query(prompt, session_id, temperature, topp, max_tokens):
           "modelName": MODEL,
           "provider": "bedrock",
           "sessionId": str(session_id),
-          "workspaceId": WORKSPACE_ID,
+#          "workspaceId": WORKSPACE_ID,
           "modelKwargs": {
               "streaming": False,
               "maxTokens": max_tokens,
@@ -133,6 +172,7 @@ def send_query(prompt, session_id, temperature, topp, max_tokens):
   while r1 is None:
     m1 = ws.recv()
     j1 = json.loads(m1)
+    print("J1:" + str(j1))
     a1 = j1.get("action")
     print("A1:" + str(a1))
     if "final_response" == a1:
@@ -146,6 +186,8 @@ def send_query(prompt, session_id, temperature, topp, max_tokens):
 
   return r1
 
+
+   
 
 #########################################################################################################
 #
@@ -161,7 +203,9 @@ if __name__ == "__main__":
   #theme = gr.themes.Soft()
   #theme = gr.themes.Monochrome()
 
-  prompt_template = """generate test cases for #network element including #service."""
+  #prompt_template = """generate test cases for #network element including #service."""
+  prompt_element_template = """#element."""
+  prompt_subsystem_template = """#service."""
 
   url = SOCKET_URL
   ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
@@ -170,16 +214,19 @@ if __name__ == "__main__":
   session_id = uuid4()
 
   with gr.Blocks(theme=theme) as demo:
-    desc = gr.Textbox(label="Details", value=prompt_template)
-
+    #gr.Label("Generate Tests for")
     with gr.Row() as row1:
+       element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, scale=2)
+       subsystem = gr.Textbox(label="Service ", value=prompt_subsystem_template, scale=1)
+
+    with gr.Row() as row2:
       format = gr.Dropdown(choices=["HTML", "CSV", "Excel", "JSON", "Text"],
                            label="Format",
                            value="HTML")
       temperature = gr.Number(value=0.4, label="Temperature")
       topp = gr.Number(value=0.9, label="TopP")
       max_tokens = gr.Number(value=4096, label="Max Tokens")
-    with gr.Row() as row2:
+    with gr.Row() as row3:
       num_tests = gr.Number(value=10, label="Number")
 
       role = gr.Dropdown(
@@ -200,7 +247,7 @@ if __name__ == "__main__":
 
     gen_btn.click(fn=generate_tests,
                   inputs=[
-                      desc, format, temperature, topp, max_tokens, num_tests,
+                      element, subsystem, format, temperature, topp, max_tokens, num_tests,
                       role, type
                   ],
                   outputs=html_block,
