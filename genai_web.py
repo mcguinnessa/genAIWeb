@@ -156,7 +156,7 @@ def send_query(prompt, session_id, temperature, topp, max_tokens):
           "modelName": MODEL,
           "provider": "bedrock",
           "sessionId": str(session_id),
-#          "workspaceId": WORKSPACE_ID,
+          "workspaceId": WORKSPACE_ID,
           "modelKwargs": {
               "streaming": False,
               "maxTokens": max_tokens,
