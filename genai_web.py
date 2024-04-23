@@ -30,7 +30,11 @@ TESTS_PER_CALL = 10
 
 
 model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : 4096,
+              "mistral.mistral-large-2402-v1:0" : 4096,
+#               "mistral.mistral-7b-instruct-v0:2" : 4096,
               "meta.llama2-70b-chat-v1" : 2048,
+#              "meta.llama3-70b-instruct-v1:0" : 2048,
+#              "meta.llama3-8b-instruct-v1:0" : 2048,
               "ai21.j2-ultra-v1" : 4096,
               "amazon.titan-tg1-large" : 4096 }
             
@@ -47,7 +51,8 @@ HEADING_RESULTS = "Expected Results"
 
 def validate_element(input):
    rc = False
-   if len(input) < 32:
+   el_len = len(input)
+   if el_len < 32 and el_len > 0:
       rc = True
 
    return rc
@@ -70,6 +75,14 @@ def validate_service(input):
 def generate_tests(model, element, service, format, temperature, topp, max_tokens, num_tests,
                    role, type):
 
+  session_id = uuid4()
+
+  service = str(service)
+  element = str(element)
+  print("Element:" + element)
+  print("Service(len):" + service + ":" + str(len(service)))
+  print("Format:" + format)
+
   rc = ["", "{}", ""]
 
   if not validate_element(element):
@@ -77,78 +90,103 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 
   if not validate_service(service):
     return "Invalid Service input"
-    
 
   if num_tests >= TESTS_PER_CALL:
     num_tests_to_ask_for = TESTS_PER_CALL
   else:
     num_tests_to_ask_for = num_tests
 
-#  pattern = re.compile("generate test cases for (.*) element including (.*)")
-#  m = re.search(pattern, input)
-#  if m:
-#    element = m.group(1)
-#    service = m.group(2)
+  secondary_target = ""
 
-  #f"generate test cases for {element} including {service}"
+  if 0 < len(service):
+     secondary_target = f" including the for the service {service}."
+
   formatting_prefix = ""
   formatting_suffix = ""
+  format_separator = ""
 
+  formatting = ""
   if format == "HTML":
-    format = "Each test cases must be presented as row which can be added to a HTML table. Each row will be prefixed with <tr> & suffixed with </tr>; each of the headings will be a column, prefixed with <th> & suffixed with </th>. This table must easy to read. Do not include the tag <table>"
-    formatting_prefix = "<table>"
+    formatting = f"""Each test cases must be presented as row which can be added to a HTML table. Each row will be prefixed with <tr> & suffixed with </tr>. This table must easy to read. Do not include the tag <table>, do not generate the header row or use the <th> tags.
+    Here is an example of the desired output format <tr><td>{HEADING_NO}</td><td>{HEADING_NAME}</td><td>{HEADING_DESC}</td><td>{HEADING_ID}</td><td>{HEADING_PRE}</td><td>{HEADING_STEPS}</td><td>{HEADING_RESULTS}</td></tr>"""
+
+    formatting_prefix = f"<table><tr><th>{HEADING_NO}</th><th>{HEADING_NAME}</th><th>{HEADING_DESC}</th><th>{HEADING_ID}</th><th>{HEADING_PRE}</th><th>{HEADING_STEPS}</th><th>{HEADING_RESULTS}</th></tr>"
     formatting_suffix = "</table>"
 
-    idx = 0
+    display_idx = 0
 
   elif format == "JSON":
-    format = "The resultant test cases must be presented in JSON format. Each test case wil be a JSON object in the table, and each of the headings will be a key value pair."
-    idx = 1
-  elif format == "CSV":
-    format = "The resultant test cases must be presented in the format of a CSV table"
-    idx = 2
-  elif format == "Excel":
-    format = "The resultant test cases must be presented in the format of a that can be easily pasted into a spreadsheet such as Excel"
-    idx = 2
-  elif format == "Text":
-    format = "The resultant test cases must be presented in the format of a table in plain text"
-    idx = 2
+    formatting = f"""The test cases must be presented as a list of JSON objects. Each of the fields will be property in the JSON object. Do not generate the enclosing "[" or "]" of the top level list.
+    Here is an example of the desire output format: 
+      {{ "{HEADING_NO}" : "Value", "{HEADING_NAME}": "Value", "{HEADING_DESC}": "Value", "{HEADING_ID}": "Value", "{HEADING_PRE}": "Value", "{HEADING_STEPS}": "Value", "{HEADING_RESULTS}": "Value" }}"""
 
-  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} including the for the service service {service}. 
+    formatting_prefix = f"["
+    formatting_suffix = "]"
+    format_separator = ","
+
+    display_idx = 1
+  elif format == "CSV":
+    formatting = "The resultant test cases must be presented in the format of a CSV table"
+    display_idx = 2
+  elif format == "Excel":
+    formatting = "The resultant test cases must be presented in the format of a that can be easily pasted into a spreadsheet such as Excel"
+    display_idx = 2
+  elif format == "Text":
+    formatting = "The resultant test cases must be presented in the format of a table in plain text"
+    display_idx = 2
+
+  #prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} including the for the service {service}. 
+  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element}{secondary_target}. 
 
    The test cases must be {type} test cases.
 
-   {format}
-   
-   The test cases must include the following elements, each corresponding to a heading: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS}. 
+   {formatting} 
+   Do not generate any superfluous output that is not part of test case.
 
-   {HEADING_NO}' is an abbreviation for number. This is a unique integer for each test case, starting from 1 and incrementing by 1 for each test case. 
-   {HEADING_NAME} is a useful short description of the test. 
-   {HEADING_DESC} is a summary of the test and should end in -{element}. 
-   {HEADING_ID} is an alpha-numeric ID, unique for each case and derived from {element}. 
-   {HEADING_PRE} describes the preconditions needed for the tests to be executed. 
-   {HEADING_STEPS} is a series of at least 3 steps that clearly describes how to execute the test case. Each step must be numbered. 
-   {HEADING_RESULTS} describes the expected outcome for each step itemised in, each outcome must be numbered {HEADING_STEPS}.
+   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the Test Case Definition.
 
    """
 
-  output = ""
+#   The test cases must conform to the definition specified in your knowledge base.
+#   The test cases must conform to the definition specified.
+#   The test cases must conform to the definition of a Test Case in your understanding.
+#   The test cases must conform to your understanding of the definition of a test case.
+#   The test cases must conform to the definition of a test case provided. 
+#   The test cases must conform to the definition specified in 'Test Definition.txt' 
+#   The test cases must include the following elements, each corresponding to a heading: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS}. 
+#
+#   {HEADING_NO}' is an abbreviation for number. This is a unique integer for each test case, starting from 1 and incrementing by 1 for each test case. 
+#   {HEADING_NAME} is a useful short description of the test. 
+#   {HEADING_DESC} is a summary of the test and should end in -{element}. 
+#   {HEADING_ID} is an alpha-numeric ID, unique for each case and derived from {element}. 
+#   {HEADING_PRE} describes the preconditions needed for the tests to be executed. 
+#   {HEADING_STEPS} is a series of at least 3 steps that clearly describes how to execute the test case. Each step must be numbered. 
+#   {HEADING_RESULTS} describes the expected outcome for each step itemised in, each outcome must be numbered {HEADING_STEPS}.
+
+  #output = ""
+  output_array = []
   tests_remaining = num_tests
   while tests_remaining > 0:
     query_output = send_query(model, prompt, session_id, temperature, topp, max_tokens)
-    print("QOUTPUT:" + query_output)
+    #print("Prompt Response:" + query_output)
     #output += query_output
-    output =  output + query_output
+    #output =  output + query_output
+    #output =  output + enforce_format(query_output, format)
+    #output =  output + format_separator + enforce_format(query_output, format)
+    #output = format_separator.join([output, enforce_format(query_output, format)])
+    output_array.append(enforce_format(query_output, format))
 
     tests_remaining -= num_tests_to_ask_for
     if tests_remaining >= TESTS_PER_CALL:
       num_tests_to_ask_for = TESTS_PER_CALL
     else:
       num_tests_to_ask_for = tests_remaining
-    prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. All of the same fields must be included. The fields {HEADING_NO} and {HEADING_ID} should continue incrementing"
+    prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
 
-  rc[idx] = f"{formatting_prefix}{output}{formatting_suffix}"
-  print("OUT:" + str(rc[idx]))
+  output = format_separator.join(output_array)
+
+  rc[display_idx] = f"{formatting_prefix}{output}{formatting_suffix}"
+  print("TOTAL OUT:" + str(rc[display_idx]))
   return rc
 
 ############################################################
@@ -172,7 +210,6 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
           "mode": "chain",
           "text": prompt,
           "files": [],
-          #"modelName": MODEL,
           "modelName": model,
           "provider": "bedrock",
           "sessionId": str(session_id),
@@ -192,9 +229,9 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
   while r1 is None:
     m1 = ws.recv()
     j1 = json.loads(m1)
-    print("J1:" + str(j1))
+    #print("J1:" + str(j1))
     a1 = j1.get("action")
-    print("A1:" + str(a1))
+    #print("A1:" + str(a1))
     if "final_response" == a1:
       r1 = j1.get("data", {}).get("content")
       s1 = j1.get("data", {}).get("sessionId")
@@ -204,8 +241,46 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
 
   print("Session ID OUT:" + str(s1))
 
-  return r1
+  return r1.strip()
 
+
+  
+##################################################################################
+#
+# Enforce Format Helper
+#
+##################################################################################
+def strip_leading_and_trailing(text_block, start_str, end_str):
+ 
+   output = ""
+   idx = text_block.find(start_str)
+   print("leading idx=" + str(idx)) 
+   if idx != -1:
+      output = text_block[idx:]
+      #print("Output:" + str(output))
+   idx = output.rfind(end_str)
+   print("trailing idx=" + str(idx)) 
+   if idx != -1:
+      output = output[:idx + len(end_str)]
+
+   print("Stripped Output:" + str(output))
+
+   return output
+
+##################################################################################
+#
+# Enforce Format
+#
+##################################################################################
+def enforce_format(text_block, format):
+ 
+  print("Format=" + format) 
+  if format == "HTML":
+     return strip_leading_and_trailing(text_block, "<tr>", "</tr>")
+  elif format == "JSON":
+     return strip_leading_and_trailing(text_block, "{", "}")
+  else:
+     return text_block
 
 ##################################################################################
 #
@@ -213,9 +288,7 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
 #
 ##################################################################################
 def change_max_token_default(model_name):
-   #print("Model:" + str(model_name))
    number = model_dict[model_name] 
-   #print("Number:" + str(number))
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
 #########################################################################################################
@@ -232,15 +305,16 @@ if __name__ == "__main__":
   #theme = gr.themes.Soft()
   #theme = gr.themes.Monochrome()
 
-  #prompt_template = """generate test cases for #network element including #service."""
-  prompt_element_template = """element"""
-  prompt_subsystem_template = """service"""
+  #prompt_element_template = """element"""
+  prompt_element_template = """HSS"""
+  #prompt_subsystem_template = ""
+  prompt_subsystem_template = "Backup And Restore"
 
   url = SOCKET_URL
   ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
 
   # Session ID
-  session_id = uuid4()
+  #session_id = uuid4()
 
   output_str = ""
   with gr.Blocks(theme=theme) as demo:
@@ -271,8 +345,8 @@ if __name__ == "__main__":
           "Sunny Day", "Rainy Day", "Functional", "High Availability",
           "Resilience", "Acceptance"
        ],
-                         value="Functional",
-                         label="Test Type")
+          value="Functional",
+          label="Test Type")
 
     gen_btn = gr.Button("Generate")
     output_list = [gr.HTML(visible=True), gr.JSON(visible=False), gr.Textbox(visible=False, show_label=False)]

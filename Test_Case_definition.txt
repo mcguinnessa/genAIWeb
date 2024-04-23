@@ -1,0 +1,9 @@
+A Test Case is defined as having the following fields:
+
+Number, abbreviated to No., and is the number of the test case in the table or document.
+Heading. A useful short description of the test case.
+Description. A summary of the test case.
+ID. An alphanumeric identifier, unique to the test and derived from the element under test and the number field.
+Prerequisites. Describes the preconditions needed for the tests to be executed.
+Test Steps. This is a series of at least 3 steps that clearly describes how to execute the test case. Each step shall be numbered.
+Expected Results. This describes the expected outcomes for each of the steps itemised in Test Steps.
