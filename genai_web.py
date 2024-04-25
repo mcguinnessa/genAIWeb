@@ -19,6 +19,10 @@ API_TOKEN = os.environ['API_KEY']
 
 TESTS_PER_CALL = 10
 
+FORMAT_OPTIONS = ["HTML", "CSV", "Excel", "JSON", "Text"]
+
+#g_tests_generated = False
+
 #MODEL = "mistral.mixtral-8x7b-instruct-v0:1"
 #MODEL = "ai21.j2-ultra-v1"
 #MODEL = "anthropic.claude-v2:1"
@@ -83,7 +87,8 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
   print("Service(len):" + service + ":" + str(len(service)))
   print("Format:" + format)
 
-  rc = ["", "{}", ""]
+  #rc = ["", "{}", "", gr.Button("Download", visible=True) ]
+  rc = ["", "{}", "", gr.Column(visible=True) ]
 
   if not validate_element(element):
     return "Invalid Element input"
@@ -116,7 +121,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
     display_idx = 0
 
   elif format == "JSON":
-    formatting = f"""The test cases must be presented as a list of JSON objects. Each of the fields will be property in the JSON object. Do not generate the enclosing "[" or "]" of the top level list.
+    formatting = f"""The output must use strict JSON format. Each Test case will be a JSON object. Each of the fields will be property in the JSON object. Do not generate the enclosing "[" or "]" of the top level list.
     Here is an example of the desire output format: 
       {{ "{HEADING_NO}" : "Value", "{HEADING_NAME}": "Value", "{HEADING_DESC}": "Value", "{HEADING_ID}": "Value", "{HEADING_PRE}": "Value", "{HEADING_STEPS}": "Value", "{HEADING_RESULTS}": "Value" }}"""
 
@@ -168,12 +173,6 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
   tests_remaining = num_tests
   while tests_remaining > 0:
     query_output = send_query(model, prompt, session_id, temperature, topp, max_tokens)
-    #print("Prompt Response:" + query_output)
-    #output += query_output
-    #output =  output + query_output
-    #output =  output + enforce_format(query_output, format)
-    #output =  output + format_separator + enforce_format(query_output, format)
-    #output = format_separator.join([output, enforce_format(query_output, format)])
     output_array.append(enforce_format(query_output, format))
 
     tests_remaining -= num_tests_to_ask_for
@@ -187,6 +186,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 
   rc[display_idx] = f"{formatting_prefix}{output}{formatting_suffix}"
   print("TOTAL OUT:" + str(rc[display_idx]))
+
   return rc
 
 ############################################################
@@ -243,7 +243,6 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
 
   return r1.strip()
 
-
   
 ##################################################################################
 #
@@ -291,12 +290,37 @@ def change_max_token_default(model_name):
    number = model_dict[model_name] 
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
+
+##################################################################################
+#
+# Downloads the output to a file
+#
+##################################################################################
+def download_to_file(html, json_data, text, format_in, format_out):
+
+   file_path = "genai.tst"
+   with open(file_path, "w") as output_file:
+      if format_in == "HTML":
+         output_file.write(str(html))
+      if format_in == "JSON":
+         json.dump(json_data, output_file, indent=3)
+      else:
+         output_file.write(str(text))
+   
+
+   text_str = str(format_in) + " tests written to file, " + file_path + " as " + str(format_out)
+   print(text_str)
+   return gr.Markdown(visible=True, value=text_str)
+
+
 #########################################################################################################
 #
 # MAIN
 #
 #########################################################################################################
 if __name__ == "__main__":
+
+  global tests_generated
 
   theme = gr.themes.Glass(primary_hue=gr.themes.colors.blue,
                           secondary_hue=gr.themes.colors.cyan)
@@ -318,22 +342,16 @@ if __name__ == "__main__":
 
   output_str = ""
   with gr.Blocks(theme=theme) as demo:
+
+    generated_state = gr.State(False)
     #gr.Label("Generate Tests for")
     with gr.Row() as row1:
        element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, scale=2)
        subsystem = gr.Textbox(label="Service ", value=prompt_subsystem_template, scale=1)
 
     with gr.Row() as row2:
-       default_max_tokens = 2048
-       model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[0], label="Model", scale=2)
-       temperature = gr.Number(value=0.4, label="Temperature", scale=1)
-       topp = gr.Number(value=0.9, label="TopP", scale=1)
-       max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
-       model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
-
-    with gr.Row() as row3:
        num_tests = gr.Number(value=10, label="Number")
-       format = gr.Dropdown(choices=["HTML", "CSV", "Excel", "JSON", "Text"],
+       format_gen = gr.Dropdown(choices=FORMAT_OPTIONS,
                            label="Format",
                            value="HTML")
 
@@ -348,28 +366,59 @@ if __name__ == "__main__":
           value="Functional",
           label="Test Type")
 
-    gen_btn = gr.Button("Generate")
-    output_list = [gr.HTML(visible=True), gr.JSON(visible=False), gr.Textbox(visible=False, show_label=False)]
-    output_box = output_list[0]
+    with gr.Row() as row3:
+       default_max_tokens = 2048
+       model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[0], label="Model", scale=2)
+       temperature = gr.Number(value=0.4, label="Temperature", scale=1)
+       topp = gr.Number(value=0.9, label="TopP", scale=1)
+       max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
+       model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
 
+
+
+    gen_btn = gr.Button("Generate")
+    html_box = gr.HTML(visible=True) 
+    json_box = gr.JSON(visible=False)  
+    text_box = gr.Textbox(visible=False, show_label=False)
+
+    with gr.Column(visible=False) as col1:
+       with gr.Row() as row4:
+          format_file = gr.Dropdown(choices=FORMAT_OPTIONS, label="File Format", value="JSON")
+          download_btn = gr.Button("Download")
+       downloaded_md = gr.Markdown("""LLM Parameters""", visible=False)
+       download_btn.click(fn=download_to_file,
+                          inputs=[html_box, json_box, text_box, format_file, format_gen],
+                          outputs=downloaded_md)
+
+
+    #output_box = output_list[0]
+
+    #
+    # Inline function to change visibility
+    #
     def change_output_box(format):
        value = format
-       if value == "HTML":
-          return  [gr.HTML(visible=True, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value="")]
-       elif value == "JSON":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value="{}"), gr.Textbox(visible=False, value="")]
-       else: 
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value="")]
 
-    format.select(fn=change_output_box, inputs=format, outputs=output_list)
+       dd = gr.Dropdown(value=format)
+       col = gr.Column(visible=False)
+       if value == "HTML":
+          return  [gr.HTML(visible=True, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+       elif value == "JSON":
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+       else: 
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=""), dd, col]
+
+    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, format_file, col1])
     
     gen_btn.click(fn=generate_tests,
                   inputs=[
-                      model, element, subsystem, format, temperature, topp, max_tokens, num_tests,
-                      role, type
+                      model, element, subsystem, format_gen, temperature, topp, max_tokens, num_tests,
+                      role, type,
                   ],
-                  outputs=output_list,
+                  #outputs=output_list,
+                  outputs=[html_box, json_box, text_box, col1],
                   api_name="TCGen")
+
 
   #demo.launch(share=True, server_name="0.0.0.0")
   demo.launch(server_name="0.0.0.0")
