@@ -352,10 +352,10 @@ if __name__ == "__main__":
   #theme = gr.themes.Soft()
   #theme = gr.themes.Monochrome()
 
-  #prompt_element_template = """element"""
-  prompt_element_template = """HSS"""
-  #prompt_subsystem_template = ""
-  prompt_subsystem_template = "Backup And Restore"
+  prompt_element_template = """element"""
+  #prompt_element_template = """HSS"""
+  prompt_subsystem_template = ""
+  #prompt_subsystem_template = "Backup And Restore"
 
   url = SOCKET_URL
   ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
