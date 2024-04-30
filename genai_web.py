@@ -6,6 +6,8 @@ from contextlib import closing
 from dataclasses import dataclass
 from uuid import uuid4
 import re
+import time
+import datetime
 
 #from langchain import PromptTemplate
 from langchain_core.prompts import PromptTemplate
@@ -37,9 +39,11 @@ model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : 4096,
               "mistral.mistral-large-2402-v1:0" : 4096,
 #               "mistral.mistral-7b-instruct-v0:2" : 4096,
               "meta.llama2-70b-chat-v1" : 2048,
-#              "meta.llama3-70b-instruct-v1:0" : 2048,
-#              "meta.llama3-8b-instruct-v1:0" : 2048,
+              "meta.llama3-70b-instruct-v1:0" : 2048,
+              "meta.llama3-8b-instruct-v1:0" : 2048,
               "ai21.j2-ultra-v1" : 4096,
+#              "anthropic.claude-3-sonnet-20240229-v1:0" : 4096,
+#              "anthropic.claude-3-haiku-20240307-v1:0" : 4096,
               "amazon.titan-tg1-large" : 4096 }
             
 
@@ -88,7 +92,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
   print("Format:" + format)
 
   #rc = ["", "{}", "", gr.Button("Download", visible=True) ]
-  rc = ["", "{}", "", gr.Column(visible=True) ]
+  rc = ["", "{}", "", gr.Column(visible=True), None ]
 
   if not validate_element(element):
     return "Invalid Element input"
@@ -186,6 +190,20 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 
   rc[display_idx] = f"{formatting_prefix}{output}{formatting_suffix}"
   print("TOTAL OUT:" + str(rc[display_idx]))
+
+
+
+  current_time = datetime.datetime.now()
+  filename = "gentests-" + current_time.strftime("%Y%m%d-%H%M") + ".tst"
+
+
+  #filename = "genai.tst"
+  download_to_file(rc[0], rc[1], rc[2], format, filename)
+  rc[4] = gr.DownloadButton(value=filename)
+
+#       #download_btn.click(fn=download_to_file,
+#                          inputs=[html_box, json_box, text_box, format_file, format_gen],
+#                          outputs=downloaded_md)
 
   return rc
 
@@ -296,10 +314,11 @@ def change_max_token_default(model_name):
 # Downloads the output to a file
 #
 ##################################################################################
-def download_to_file(html, json_data, text, format_in, format_out):
+#def download_to_file(html, json_data, text, format_in, format_out):
+def download_to_file(html, json_data, text, format_in, filename):
 
-   file_path = "genai.tst"
-   with open(file_path, "w") as output_file:
+   #file_path = "genai.tst"
+   with open(filename, "w") as output_file:
       if format_in == "HTML":
          output_file.write(str(html))
       if format_in == "JSON":
@@ -308,9 +327,13 @@ def download_to_file(html, json_data, text, format_in, format_out):
          output_file.write(str(text))
    
 
-   text_str = str(format_in) + " tests written to file, " + file_path + " as " + str(format_out)
+   #text_str = str(format_in) + " tests written to file, " + file_path + " as " + str(format_out)
+   text_str = str(format_in) + " tests written to file, " + filename
    print(text_str)
-   return gr.Markdown(visible=True, value=text_str)
+   #return gr.Markdown(visible=True, value=text_str)
+   #return file_path
+   time.sleep(1)
+   return
 
 
 #########################################################################################################
@@ -368,7 +391,7 @@ if __name__ == "__main__":
 
     with gr.Row() as row3:
        default_max_tokens = 2048
-       model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[0], label="Model", scale=2)
+       model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[1], label="Model", scale=2)
        temperature = gr.Number(value=0.4, label="Temperature", scale=1)
        topp = gr.Number(value=0.9, label="TopP", scale=1)
        max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
@@ -383,12 +406,14 @@ if __name__ == "__main__":
 
     with gr.Column(visible=False) as col1:
        with gr.Row() as row4:
-          format_file = gr.Dropdown(choices=FORMAT_OPTIONS, label="File Format", value="JSON")
-          download_btn = gr.Button("Download")
-       downloaded_md = gr.Markdown("""LLM Parameters""", visible=False)
-       download_btn.click(fn=download_to_file,
-                          inputs=[html_box, json_box, text_box, format_file, format_gen],
-                          outputs=downloaded_md)
+          #format_file = gr.Dropdown(choices=FORMAT_OPTIONS, label="File Format", value="JSON")
+          #download_btn = gr.Button("Download")
+          download_btn = gr.DownloadButton("Download")
+          #download_btn = gr.DownloadButton("Download", value=download_to_file, inputs=[html_box, json_box, text_box, format_file, format_gen])
+       #downloaded_md = gr.Markdown("""LLM Parameters""", visible=False)
+       #download_btn.click(fn=download_to_file,
+       #                   inputs=[html_box, json_box, text_box, format_file, format_gen],
+       #                   outputs=downloaded_md)
 
 
     #output_box = output_list[0]
@@ -399,16 +424,20 @@ if __name__ == "__main__":
     def change_output_box(format):
        value = format
 
-       dd = gr.Dropdown(value=format)
+       #dd = gr.Dropdown(value=format)
        col = gr.Column(visible=False)
        if value == "HTML":
-          return  [gr.HTML(visible=True, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+          #return  [gr.HTML(visible=True, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+          return  [gr.HTML(visible=True, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""), col]
        elif value == "JSON":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+          #return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value="{}"), gr.Textbox(visible=False, value=""), dd, col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value="{}"), gr.Textbox(visible=False, value=""), col]
        else: 
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=""), dd, col]
+          #return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=""), dd, col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=""), col]
 
-    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, format_file, col1])
+    #format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, format_file, col1])
+    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, col1])
     
     gen_btn.click(fn=generate_tests,
                   inputs=[
@@ -416,7 +445,7 @@ if __name__ == "__main__":
                       role, type,
                   ],
                   #outputs=output_list,
-                  outputs=[html_box, json_box, text_box, col1],
+                  outputs=[html_box, json_box, text_box, col1, download_btn],
                   api_name="TCGen")
 
 
