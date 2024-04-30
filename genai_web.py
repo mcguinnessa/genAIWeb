@@ -125,9 +125,9 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
     display_idx = 0
 
   elif format == "JSON":
-    formatting = f"""The output must use strict JSON format. Each Test case will be a JSON object. Each of the fields will be property in the JSON object. Do not generate the enclosing "[" or "]" of the top level list.
-    Here is an example of the desire output format: 
-      {{ "{HEADING_NO}" : "Value", "{HEADING_NAME}": "Value", "{HEADING_DESC}": "Value", "{HEADING_ID}": "Value", "{HEADING_PRE}": "Value", "{HEADING_STEPS}": "Value", "{HEADING_RESULTS}": "Value" }}"""
+    formatting = f"""The output must use strict JSON format. Each Test case will be a JSON object. Each of the fields will be property in the JSON object. Each row must be separated with a ',' character. Do not generate the enclosing "[" or "]" of the top level list.
+    Here is an example of the desired output format: 
+      {{ "{HEADING_NO}" : "Value 1", "{HEADING_NAME}": "Value 1", "{HEADING_DESC}": "Value 1", "{HEADING_ID}": "Value 1", "{HEADING_PRE}": "Value 1", "{HEADING_STEPS}": "Value 1", "{HEADING_RESULTS}": "Value 1" }}, {{ "{HEADING_NO}" : "Value 2", "{HEADING_NAME}": "Value 2", "{HEADING_DESC}": "Value 2", "{HEADING_ID}": "Value 2", "{HEADING_PRE}": "Value 2", "{HEADING_STEPS}": "Value 2", "{HEADING_RESULTS}": "Value 2" }},"""
 
     formatting_prefix = f"["
     formatting_suffix = "]"
@@ -177,7 +177,10 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
   tests_remaining = num_tests
   while tests_remaining > 0:
     query_output = send_query(model, prompt, session_id, temperature, topp, max_tokens)
-    output_array.append(enforce_format(query_output, format))
+    stripped = enforce_format(query_output, format)
+  
+    if stripped:
+       output_array.append(stripped)
 
     tests_remaining -= num_tests_to_ask_for
     if tests_remaining >= TESTS_PER_CALL:
@@ -282,7 +285,10 @@ def strip_leading_and_trailing(text_block, start_str, end_str):
 
    print("Stripped Output:" + str(output))
 
-   return output
+   if len(output) == 0:
+      return None
+   else:
+      return output
 
 ##################################################################################
 #
