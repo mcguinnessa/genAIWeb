@@ -1,6 +1,7 @@
 .workspaces
 
 *.swp
+*.tst
 
 
 # Eclipse m2e generated files
@@ -8,3 +9,4 @@
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
