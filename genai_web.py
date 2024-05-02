@@ -18,12 +18,21 @@ import os
 WORKSPACE_ID = os.environ['WORKSPACE_ID']
 SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
 API_TOKEN = os.environ['API_KEY']
+UI_PASSWORD = os.environ['UI_PASSWORD']
+UI_USER = os.environ['UI_USER']
 
 TESTS_PER_CALL = 10
 
 FORMAT_OPTIONS = ["HTML", "CSV", "Excel", "JSON", "Text"]
 
-#g_tests_generated = False
+ELEMENT_INFO="This is the element that is the subject of the tests" 
+FOCUS_INFO = "The area you want the tests to focus on, it could be a subsystem or a new area of functionality. Or a freeform instruction to the LLM (optional)"
+NUMBER_INFO="The number of tests to be generated"
+FORMAT_INFO="The Format to display the tests in"
+ROLE_INFO="Who are the tests for?"
+TEST_INFO="Which types of tests are requried"
+
+
 
 #MODEL = "mistral.mixtral-8x7b-instruct-v0:1"
 #MODEL = "ai21.j2-ultra-v1"
@@ -65,9 +74,9 @@ def validate_element(input):
 
    return rc
 
-def validate_service(input):
+def validate_focus(input):
    rc = False
-   if len(input) < 32: 
+   if len(input) < 128: 
       rc = True
 
    return rc
@@ -80,15 +89,16 @@ def validate_service(input):
 # Generates the tests
 #
 ############################################################
-def generate_tests(model, element, service, format, temperature, topp, max_tokens, num_tests,
+def generate_tests(model, element, focus, format, temperature, topp, max_tokens, num_tests,
                    role, type):
+
 
   session_id = uuid4()
 
-  service = str(service)
+  focus = str(focus)
   element = str(element)
   print("Element:" + element)
-  print("Service(len):" + service + ":" + str(len(service)))
+  print("Focus(len):" + focus + ":" + str(len(focus)))
   print("Format:" + format)
 
   #rc = ["", "{}", "", gr.Button("Download", visible=True) ]
@@ -97,8 +107,8 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
   if not validate_element(element):
     return "Invalid Element input"
 
-  if not validate_service(service):
-    return "Invalid Service input"
+  if not validate_focus(focus):
+    return "Invalid Focus input"
 
   if num_tests >= TESTS_PER_CALL:
     num_tests_to_ask_for = TESTS_PER_CALL
@@ -107,8 +117,9 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 
   secondary_target = ""
 
-  if 0 < len(service):
-     secondary_target = f" including the for the service {service}."
+  if 0 < len(focus):
+     #secondary_target = f" including the for the service {focus}."
+     secondary_target = f"{focus}."
 
   formatting_prefix = ""
   formatting_suffix = ""
@@ -145,7 +156,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
     display_idx = 2
 
   #prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} including the for the service {service}. 
-  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element}{secondary_target}. 
+  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} {secondary_target}. 
 
    The test cases must be {type} test cases.
 
@@ -172,11 +183,11 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 #   {HEADING_STEPS} is a series of at least 3 steps that clearly describes how to execute the test case. Each step must be numbered. 
 #   {HEADING_RESULTS} describes the expected outcome for each step itemised in, each outcome must be numbered {HEADING_STEPS}.
 
-  #output = ""
+  ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
   output_array = []
   tests_remaining = num_tests
   while tests_remaining > 0:
-    query_output = send_query(model, prompt, session_id, temperature, topp, max_tokens)
+    query_output = send_query(ws, model, prompt, session_id, temperature, topp, max_tokens)
     stripped = enforce_format(query_output, format)
   
     if stripped:
@@ -189,6 +200,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
       num_tests_to_ask_for = tests_remaining
     prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
 
+  ws.close()
   output = format_separator.join(output_array)
 
   rc[display_idx] = f"{formatting_prefix}{output}{formatting_suffix}"
@@ -215,7 +227,7 @@ def generate_tests(model, element, service, format, temperature, topp, max_token
 # Sends the query to the playground
 #
 ############################################################
-def send_query(model, prompt, session_id, temperature, topp, max_tokens):
+def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
 
   print("Model         :" + str(model))
   print("Max Tokens    :" + str(max_tokens))
@@ -243,12 +255,12 @@ def send_query(model, prompt, session_id, temperature, topp, max_tokens):
           }
       }
   }
-  ws.send(json.dumps(data))
+  sock.send(json.dumps(data))
 
   r1 = None
   s1 = None
   while r1 is None:
-    m1 = ws.recv()
+    m1 = sock.recv()
     j1 = json.loads(m1)
     #print("J1:" + str(j1))
     a1 = j1.get("action")
@@ -360,11 +372,10 @@ if __name__ == "__main__":
 
   prompt_element_template = """element"""
   #prompt_element_template = """HSS"""
-  prompt_subsystem_template = ""
+  prompt_focus_template = "Focus on the area "
   #prompt_subsystem_template = "Backup And Restore"
 
   url = SOCKET_URL
-  ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
 
   # Session ID
   #session_id = uuid4()
@@ -375,23 +386,27 @@ if __name__ == "__main__":
     generated_state = gr.State(False)
     #gr.Label("Generate Tests for")
     with gr.Row() as row1:
-       element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, scale=2)
-       subsystem = gr.Textbox(label="Service ", value=prompt_subsystem_template, scale=1)
+       element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, info=ELEMENT_INFO, scale=1)
+       subsystem = gr.Textbox(label="Focus ", value=prompt_focus_template, info=FOCUS_INFO, scale=1)
 
     with gr.Row() as row2:
+       #num_tests = gr.Number(value=10, label="Number", info=NUMBER_INFO)
        num_tests = gr.Number(value=10, label="Number")
        format_gen = gr.Dropdown(choices=FORMAT_OPTIONS,
                            label="Format",
+#                           info=FORMAT_INFO,
                            value="HTML")
 
        role = gr.Dropdown(
           choices=["Tester", "Software Engineer", "Customer", "Analyst"],
+#          info=ROLE_INFO,
           value="Tester",
           label="Role")
        type = gr.Dropdown(choices=[
           "Sunny Day", "Rainy Day", "Functional", "High Availability",
           "Resilience", "Acceptance"
        ],
+#          info=TEST_INFO,
           value="Functional",
           label="Test Type")
 
@@ -456,5 +471,5 @@ if __name__ == "__main__":
 
 
   #demo.launch(share=True, server_name="0.0.0.0")
-  demo.launch(server_name="0.0.0.0")
-  ws.close()
+  demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+  #demo.launch(server_name="0.0.0.0")
