@@ -8,15 +8,13 @@ from uuid import uuid4
 import re
 import time
 import datetime
+import os
+import gradio as gr
 from xml_format import XMLFormat
 from collections import OrderedDict
 
 
-#from langchain import PromptTemplate
 from langchain_core.prompts import PromptTemplate
-
-import gradio as gr
-import os
 
 WORKSPACE_ID = os.environ['WORKSPACE_ID']
 SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
@@ -26,7 +24,7 @@ UI_USER = os.environ['UI_USER']
 
 TESTS_PER_CALL = 10
 
-FORMAT_OPTIONS = ["HTML", "JSON", "Excel (CSV)",  "XML"]
+FORMAT_OPTIONS = ["HTML", "JSON", "Excel (CSV)", "XML"]
 
 ELEMENT_INFO="This is the element that is the subject of the tests" 
 FOCUS_INFO = "The area you want the tests to focus on, it could be a subsystem or a new area of functionality. Or a freeform instruction to the LLM (optional)"
@@ -92,7 +90,6 @@ def validate_focus(input):
       rc = True
 
    return rc
-     
 
 ############################################################
 #
@@ -110,10 +107,9 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   print("Element:" + element)
   print("Focus(len):" + focus + ":" + str(len(focus)))
   print("Format:" + format)
-
-  #rc = ["", "{}", "", gr.Button("Download", visible=True) ]
+  
+  #response = [html_box, json_box, text_box, column, download_btn]
   rc = ["", "{}", "", gr.Column(visible=True), None ]
-  #rc = ["", gr.Column(visible=True), None ]
 
   if not validate_element(element):
     return "Invalid Element input"
@@ -136,17 +132,6 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   formatting_suffix = ""
   format_separator = ""
 
-  formatting = ""
-#  if format == "HTML":
-#    formatting = f"""Each test cases must be presented as row which can be added to a HTML table. Each row will be prefixed with <tr> & suffixed with </tr>. This table must easy to read. Do not include the tag <table>, do not generate the header row or use the <th> tags.
-#    Here is an example of the desired output format <tr><td>{HEADING_NO}</td><td>{HEADING_NAME}</td><td>{HEADING_DESC}</td><td>{HEADING_ID}</td><td>{HEADING_PRE}</td><td>{HEADING_STEPS}</td><td>{HEADING_RESULTS}</td></tr>"""
-#
-#    formatting_prefix = f"<table><tr><th>{HEADING_NO}</th><th>{HEADING_NAME}</th><th>{HEADING_DESC}</th><th>{HEADING_ID}</th><th>{HEADING_PRE}</th><th>{HEADING_STEPS}</th><th>{HEADING_RESULTS}</th></tr>"
-#    formatting_suffix = "</table>"
-#
-#    display_idx = 0
-#
-#  elif format == "XML":
   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
     Here is an example of the desired output for a single test case : 
       <tc>
@@ -159,32 +144,12 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
         <{XML_HEADINGS[HEADING_RESULTS]}>1. The backup is created\n 2, The backup is restored.\n 3. The backup is verified\n</{XML_HEADINGS[HEADING_RESULTS]}>
       </tc>
   """
+
   display_idx = 0
   formatting_prefix = "<test-cases>"
   formatting_suffix = "</test-cases>"
   format_separator = ""
 
-#  elif format == FORMAT_OPTIONS[2]:
-#    formatting = f"""The output must use strict JSON format. Each Test case will be a JSON object. Each of the fields will be property in the JSON object. Each row must be separated with a ',' character. Do not generate the enclosing "[" or "]" of the top level list.
-#    Here is an example of the desired output format: 
-#      {{ "{HEADING_NO}" : "Value 1", "{HEADING_NAME}": "Value 1", "{HEADING_DESC}": "Value 1", "{HEADING_ID}": "Value 1", "{HEADING_PRE}": "Value 1", "{HEADING_STEPS}": "Value 1", "{HEADING_RESULTS}": "Value 1" }}, {{ "{HEADING_NO}" : "Value 2", "{HEADING_NAME}": "Value 2", "{HEADING_DESC}": "Value 2", "{HEADING_ID}": "Value 2", "{HEADING_PRE}": "Value 2", "{HEADING_STEPS}": "Value 2", "{HEADING_RESULTS}": "Value 2" }},"""
-#
-#    formatting_prefix = f"["
-#    formatting_suffix = "]"
-#    format_separator = ","
-#
-#    display_idx = 1
-#  elif format == "CSV":
-#    formatting = "The resultant test cases must be presented in the format of a CSV table"
-#    display_idx = 2
-#  elif format == "Excel":
-#    formatting = "The resultant test cases must be presented in the format of a that can be easily pasted into a spreadsheet such as Excel"
-#    display_idx = 2
-#  elif format == "Text":
-#    formatting = "The resultant test cases must be presented in the format of a table in plain text"
-#    display_idx = 2
-#
-#  #prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} including the for the service {service}. 
   prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} {secondary_target}. 
 
    The test cases must be {type} test cases.
@@ -227,32 +192,29 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
 
   data_object = XMLFormat(f"{formatting_prefix}{output}{formatting_suffix}", XML_HEADINGS)
 
-  #rc[display_idx] = f"{formatting_prefix}{output}{formatting_suffix}"
-  #rc[display_idx] = data_object.asHTML(XML_HEADINGS)
-
-  
-  if format == FORMAT_OPTIONS[0]:
-     rc[0] = data_object.asHTML()
-  elif format == FORMAT_OPTIONS[1]:
-     rc[1] = data_object.asJSON()
-  elif format == FORMAT_OPTIONS[2]:
-     rc[2] = data_object.asCSV()
-  elif format == FORMAT_OPTIONS[3]:
-     rc[2] = data_object.asXML()
-  else:
-     rc[2] = data_object.asCSV()
-
-#  print("HTML DATA:" + str(data_object.asHTML(XML_HEADINGS)))
-#  print("JSON DATA:" + str(data_object.asJSON(XML_HEADINGS)))
-#  print("TOTAL OUT["+str(display_idx)+"]:" + str(rc[display_idx]))
-
   current_time = datetime.datetime.now()
-  filename = "gentests-" + current_time.strftime("%Y%m%d-%H%M") + ".tst"
+  filename_base = "gentests-" + current_time.strftime("%Y%m%d-%H%M")
+  print("Filename Base:" + filename_base)
+  data_object.set_filename_base(filename_base)
+  
+  if format == FORMAT_OPTIONS[0]: #HTML
+     rc[0] = data_object.asHTML()
+     filename = filename_base + ".html"
+  elif format == FORMAT_OPTIONS[1]: #JSON
+     rc[1] = data_object.asJSON()
+     filename = filename_base + ".json"
+  elif format == FORMAT_OPTIONS[2]: #CSV
+     rc[2] = data_object.asCSV()
+     filename = filename_base + ".csv"
+  elif format == FORMAT_OPTIONS[3]: #XML
+     rc[2] = data_object.asXML()
+     filename = filename_base + ".xml"
+  else:
+     rc[2] = data_object.asCSV() #OTHER
+     filename = filename_base + ".txt"
 
-  #filename = "genai.tst"
-#  download_to_file(rc[0], rc[1], rc[2], format, filename)
-  #rc[4] = gr.DownloadButton(value=filename)
-  rc[2] = gr.DownloadButton(value=filename)
+  print("Download Filename:" + str(filename))
+  rc[4] = gr.DownloadButton(value=filename, visible=True)
 
   return rc
 
@@ -365,44 +327,12 @@ def change_max_token_default(model_name):
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
 
-##################################################################################
-#
-# Downloads the output to a file
-#
-##################################################################################
-#def download_to_file(html, json_data, text, format_in, format_out):
-def download_to_file(html, json_data, text, format_in, filename):
-
-   #file_path = "genai.tst"
-   with open(filename, "w") as output_file:
-      if format_in == FORMAT_OPTIONS[0]:
-         output_file.write(str(html))
-      elif format_in == FORMAT_OPTIONS[2]:
-         output_file.write(str(text))
-      elif format_in == FORMAT_OPTIONS[1]:
-         json.dump(json_data, output_file, indent=3)
-      else:
-         output_file.write(str(text))
-   
-
-   #text_str = str(format_in) + " tests written to file, " + file_path + " as " + str(format_out)
-   text_str = str(format_in) + " tests written to file, " + filename
-   print(text_str)
-   #return gr.Markdown(visible=True, value=text_str)
-   #return file_path
-   time.sleep(1)
-   return
-
-
 #########################################################################################################
 #
 # MAIN
 #
 #########################################################################################################
 if __name__ == "__main__":
-
-#  global tests_generated
-#  global data_object
 
   theme = gr.themes.Glass(primary_hue=gr.themes.colors.blue,
                           secondary_hue=gr.themes.colors.cyan)
@@ -411,15 +341,12 @@ if __name__ == "__main__":
   #theme = gr.themes.Soft()
   #theme = gr.themes.Monochrome()
 
-  #prompt_element_template = """element"""
-  prompt_element_template = """HSS"""
-  #prompt_focus_template = "Focus on the area "
-  prompt_focus_template = "Focus on the area Backup And Restore"
+  prompt_element_template = """element"""
+  #prompt_element_template = """HSS"""
+  prompt_focus_template = "Focus on the area "
+  #prompt_focus_template = "Focus on the area Backup And Restore"
 
   url = SOCKET_URL
-
-  # Session ID
-  #session_id = uuid4()
 
   output_str = ""
   with gr.Blocks(theme=theme) as demo:
@@ -459,8 +386,6 @@ if __name__ == "__main__":
        max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
        model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
 
-
-
     gen_btn = gr.Button("Generate")
     html_box = gr.HTML(visible=True) 
     json_box = gr.JSON(visible=False)  
@@ -468,7 +393,8 @@ if __name__ == "__main__":
 
     with gr.Column(visible=False) as col1:
        with gr.Row() as row4:
-          download_btn = gr.DownloadButton("Download")
+          download = "Download"
+          download_btn = gr.DownloadButton(label=download)
 
     #output_box = output_list[0]
 
@@ -478,21 +404,23 @@ if __name__ == "__main__":
     def change_output_box(format):
        value = format
 
-       #dd = gr.Dropdown(value=format)
-       col = gr.Column(visible=False)
        if value == "HTML":
-          return  [gr.HTML(visible=True, value=data_object.asHTML()), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""), col]
+          return  [gr.HTML(visible=True, value=data_object.asHTML()), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""),
+                   gr.DownloadButton(value=data_object.get_filename())]
        elif value == "XML":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asXML()), col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asXML()), 
+                   gr.DownloadButton(value=data_object.get_filename())]
        elif value == "JSON":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value=data_object.asJSON()), gr.Textbox(visible=False, value=""), col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value=data_object.asJSON()), gr.Textbox(visible=False, value=""), 
+                   gr.DownloadButton(value=data_object.get_filename())]
        elif value == "CSV":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()),
+                   gr.DownloadButton(value=data_object.get_filename())]
        else: 
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), col]
+          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), 
+                   gr.DownloadButton(value=data_object.get_filename())]
 
-    #format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, format_file, col1])
-    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, col1])
+    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, download_btn])
     
     gen_btn.click(fn=generate_tests,
                   inputs=[
@@ -507,5 +435,5 @@ if __name__ == "__main__":
 
 
   #demo.launch(share=True, server_name="0.0.0.0")
-  #demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-  demo.launch(server_name="0.0.0.0")
+  demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+  #demo.launch(server_name="0.0.0.0")

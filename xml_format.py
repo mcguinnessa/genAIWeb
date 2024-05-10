@@ -25,6 +25,7 @@ class XMLFormat(Format):
           if len(self.xml) <= 0:
              return ""
 
+          self.write_to_file_as_text(self.xml)
        return self.xml
 
 ################################################################################
@@ -70,6 +71,8 @@ class XMLFormat(Format):
 
           self.html = f"""<table>{html}</table>\n"""
 
+          self.write_to_file_as_html()
+
        print("Returning HTML Format:" + str(self.html))  
        return self.html
 
@@ -101,6 +104,7 @@ class XMLFormat(Format):
                 #tc_obj[htag] = tc[xtag]
              self.json.append(tc_obj)  
 
+          self.write_to_file_as_json()
        print("Returning JSON Format:" + str(self.json))  
        return self.json
 
@@ -135,11 +139,11 @@ class XMLFormat(Format):
              #self.json.append(tc_obj)  
              self.csv += ",".join(row) + '\n'
 
+
+
+          self.write_to_file_as_text(self.csv)
        print("Returning CSV Format:" + str(self.csv))  
        return self.csv
-
-
-
 
 
 
