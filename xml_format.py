@@ -58,7 +58,6 @@ class XMLFormat(Format):
              html += f"<th>{hdr}</th>"
           html += "</tr>\n"
  
-
           print("ALL OBJS:" + str(tc_objs))
           print("Headers:" + str(self.headings))
           for id, tc_obj in tc_objs.items():
@@ -108,17 +107,19 @@ class XMLFormat(Format):
        print("Returning JSON Format:" + str(self.json))  
        return self.json
 
-
 ################################################################################
 #
 # Display Data as CSV
 #
 ################################################################################
     def asCSV(self):
+
+
        
        if not self.csv or len(self.csv) == 0:
 
           self.csv = ""
+          self.csv += ",".join(self.headings.keys())
 
           if len(self.xml) <= 0:
              return "" 
@@ -140,8 +141,7 @@ class XMLFormat(Format):
              self.csv += ",".join(row) + '\n'
 
 
-
-          self.write_to_file_as_text(self.csv)
+          self.write_to_file_as_text(self.csv, Format.CSV_SUFFIX)
        print("Returning CSV Format:" + str(self.csv))  
        return self.csv
 

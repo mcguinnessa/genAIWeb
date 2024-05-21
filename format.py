@@ -8,7 +8,7 @@ class Format(ABC):
    HTML_SUFFIX = ".html"
    JSON_SUFFIX = ".json"
    CSV_SUFFIX = ".csv"
-   TXT_SUFFIX = ".text"
+   TXT_SUFFIX = ".txt"
 
    def __init__(self):
       self.json = None
@@ -31,8 +31,9 @@ class Format(ABC):
 # Writes the tests to file in Text
 #
 #########################################################################
-   def write_to_file_as_text(self, text):
-      self.filename = self.filename_base + self.TXT_SUFFIX
+   def write_to_file_as_text(self, text, suffix):
+      #self.filename = self.filename_base + self.TXT_SUFFIX
+      self.filename = self.filename_base + suffix
 
       with open(self.filename, "w") as output_file:
          output_file.write(text)

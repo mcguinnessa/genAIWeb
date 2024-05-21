@@ -135,15 +135,25 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
     Here is an example of the desired output for a single test case : 
       <tc>
-        <{XML_HEADINGS[HEADING_NO]}>1</{XML_HEADINGS[HEADING_NO]}>
-        <{XML_HEADINGS[HEADING_NAME]}>Backup and Restore of Filesystem Data</{XML_HEADINGS[HEADING_NAME]}>
-        <{XML_HEADINGS[HEADING_DESC]}>Verify that the ARC supports backup and restore of filesystem data.</{XML_HEADINGS[HEADING_DESC]}>
-        <{XML_HEADINGS[HEADING_ID]}>XID_001</{XML_HEADINGS[HEADING_ID]}>
-        <{XML_HEADINGS[HEADING_PRE]}>The ARC is properly configured and connected to the storage system.</{XML_HEADINGS[HEADING_PRE]}>
-        <{XML_HEADINGS[HEADING_STEPS]}>1. Create a backup.\n 2. Restore the filesystem data from the backup.\n 3. Verify backup\n</{XML_HEADINGS[HEADING_STEPS]}>
-        <{XML_HEADINGS[HEADING_RESULTS]}>1. The backup is created\n 2, The backup is restored.\n 3. The backup is verified\n</{XML_HEADINGS[HEADING_RESULTS]}>
+        <{XML_HEADINGS[HEADING_NO]}>Number</{XML_HEADINGS[HEADING_NO]}>
+        <{XML_HEADINGS[HEADING_NAME]}>Heading</{XML_HEADINGS[HEADING_NAME]}>
+        <{XML_HEADINGS[HEADING_DESC]}>Description.</{XML_HEADINGS[HEADING_DESC]}>
+        <{XML_HEADINGS[HEADING_ID]}>ID</{XML_HEADINGS[HEADING_ID]}>
+        <{XML_HEADINGS[HEADING_PRE]}>Prerequisites.</{XML_HEADINGS[HEADING_PRE]}>
+        <{XML_HEADINGS[HEADING_STEPS]}>1. Step One.\n 2. Step Two.\n 3. Step Three.</{XML_HEADINGS[HEADING_STEPS]}>
+        <{XML_HEADINGS[HEADING_RESULTS]}>1. Expected Result One.\n 2. Expected Result Two.\n 3. Expected Result Three.</{XML_HEADINGS[HEADING_RESULTS]}>
       </tc>
   """
+#      <tc>
+#        <{XML_HEADINGS[HEADING_NO]}>1</{XML_HEADINGS[HEADING_NO]}>
+#        <{XML_HEADINGS[HEADING_NAME]}>Backup and Restore of Filesystem Data</{XML_HEADINGS[HEADING_NAME]}>
+#        <{XML_HEADINGS[HEADING_DESC]}>Verify that the ARC supports backup and restore of filesystem data.</{XML_HEADINGS[HEADING_DESC]}>
+#        <{XML_HEADINGS[HEADING_ID]}>XID_001</{XML_HEADINGS[HEADING_ID]}>
+#        <{XML_HEADINGS[HEADING_PRE]}>The ARC is properly configured and connected to the storage system.</{XML_HEADINGS[HEADING_PRE]}>
+#        <{XML_HEADINGS[HEADING_STEPS]}>1. Create a backup.\n 2. Restore the filesystem data from the backup.\n 3. Verify backup\n</{XML_HEADINGS[HEADING_STEPS]}>
+#        <{XML_HEADINGS[HEADING_RESULTS]}>1. The backup is created\n 2, The backup is restored.\n 3. The backup is verified\n</{XML_HEADINGS[HEADING_RESULTS]}>
+#      </tc>
+#  """
 
   display_idx = 0
   formatting_prefix = "<test-cases>"
@@ -435,5 +445,5 @@ if __name__ == "__main__":
 
 
   #demo.launch(share=True, server_name="0.0.0.0")
-  demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-  #demo.launch(server_name="0.0.0.0")
+  #demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+  demo.launch(server_name="0.0.0.0")
