@@ -34,16 +34,36 @@ ROLE_INFO="Who are the tests for?"
 TEST_INFO="Which types of tests are requried"
 
 
-model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : 4096,
-              "mistral.mistral-large-2402-v1:0" : 4096,
+model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
+              "mistral.mistral-large-2402-v1:0" : ("bedrock", 4096 ),
 #               "mistral.mistral-7b-instruct-v0:2" : 4096,
-              "meta.llama2-70b-chat-v1" : 2048,
-              "meta.llama3-70b-instruct-v1:0" : 2048,
-              "meta.llama3-8b-instruct-v1:0" : 2048,
-              "ai21.j2-ultra-v1" : 4096,
-#              "anthropic.claude-3-sonnet-20240229-v1:0" : 4096,
-#              "anthropic.claude-3-haiku-20240307-v1:0" : 4096,
-              "amazon.titan-tg1-large" : 4096 }
+              "meta.llama2-70b-chat-v1" : ("bedrock", 2048),
+              "meta.llama3-70b-instruct-v1:0" : ("bedrock", 2048),
+              "meta.llama3-8b-instruct-v1:0" : ("bedrock", 2048),
+              "ai21.j2-ultra-v1" : ("bedrock", 4096),
+              "amazon.titan-tg1-large" : ("bedrock", 4096) ,
+              "amazon.titan-text-premier-v1:0" : ("bedrock", 4096) ,
+              "amazon.titan-olympus-premier-v1:0" : ("bedrock", 4096) ,
+              "amazon.titan-text-lite-v1" : ("bedrock", 4096) ,
+              "amazon.titan-text-express-v1" : ("bedrock", 4096) ,
+              "ai21.j2-grande-instruct" : ("bedrock", 4096),
+              "ai21.j2-jumbo-instruct" : ("bedrock", 4096),
+              "ai21.j2-mid" : ("bedrock", 4096),
+              "ai21.j2-mid-v1" : ("bedrock", 4096),
+              "ai21.j2-ultra" : ("bedrock", 4096),
+              "ai21.j2-ultra-v1" : ("bedrock", 4096),
+	      "anthropic.claude-instant-v1" : ("bedrock", 4096),
+              "anthropic.claude-v2:1" : ("bedrock", 4096),
+              "anthropic.claude-v2" : ("bedrock", 4096),
+#              "anthropic.claude-3-sonnet-20240229-v1:0" : ("bedrock", 4096),
+#              "anthropic.claude-3-haiku-20240307-v1:0" : ("bedrock", 4096),
+              "cohere.command-text-v14" : ("bedrock", 4096),
+              "cohere.command-r-v1:0" : ("bedrock", 4096),
+              "cohere.command-r-plus-v1:0" : ("bedrock", 4096),
+              "cohere.command-light-text-v14" : ("bedrock", 4096),
+              "openai.gpt-3.5-turbo" : ("azure", 4096),
+              "openai.gpt-4" : ("azure", 4096),
+              "openai.gpt-4o" : ("azure", 4096) }
             
 HEADING_NO = "No."
 HEADING_NAME = "Test Name"
@@ -235,6 +255,9 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
 ############################################################
 def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
 
+  provider = model_dict[model][0]
+
+  print("Provider      :" + str(provider))
   print("Model         :" + str(model))
   print("Max Tokens    :" + str(max_tokens))
   print("Session ID IN :" + str(session_id))
@@ -250,7 +273,8 @@ def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
           "text": prompt,
           "files": [],
           "modelName": model,
-          "provider": "bedrock",
+          "provider": provider,
+#          "provider": "bedrock",
           "sessionId": str(session_id),
           "workspaceId": WORKSPACE_ID,
           "modelKwargs": {
@@ -333,7 +357,7 @@ def enforce_format(text_block, format):
 #
 ##################################################################################
 def change_max_token_default(model_name):
-   number = model_dict[model_name] 
+   number = model_dict[model_name][1] 
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
 
