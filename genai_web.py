@@ -16,7 +16,11 @@ from collections import OrderedDict
 
 from langchain_core.prompts import PromptTemplate
 
-WORKSPACE_ID = os.environ['WORKSPACE_ID']
+
+DEFAULT_WORKSPACE = "8dac89ca-e319-4cfd-86c8-c8279c118904"
+DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+
+#WORKSPACE_ID = os.environ['WORKSPACE_ID']
 SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
 API_TOKEN = os.environ['API_KEY']
 UI_PASSWORD = os.environ['UI_PASSWORD']
@@ -32,8 +36,10 @@ NUMBER_INFO="The number of tests to be generated"
 FORMAT_INFO="The Format to display the tests in"
 ROLE_INFO="Who are the tests for?"
 TEST_INFO="Which types of tests are requried"
+WORKSPACE_INFO="This is the workspace defined in Capgemini Generative Engine where the relevant documentation has been uploaded"
+DOCUMENT_INFO="This is document in the workspace that the test cases will be inferred from"
 
-
+DEFAULT_MODEL_IDX = 0
 model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
               "mistral.mistral-large-2402-v1:0" : ("bedrock", 4096 ),
 #               "mistral.mistral-7b-instruct-v0:2" : 4096,
@@ -116,7 +122,7 @@ def validate_focus(input):
 # Generates the tests
 #
 ############################################################
-def generate_tests(model, element, focus, format, temperature, topp, max_tokens, num_tests,
+def generate_tests(model, element, focus, format, workspace_id, document_id, temperature, topp, max_tokens, num_tests,
                    role, type):
 
   global data_object
@@ -155,13 +161,13 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
     Here is an example of the desired output for a single test case : 
       <tc>
-        <{XML_HEADINGS[HEADING_NO]}>Number</{XML_HEADINGS[HEADING_NO]}>
-        <{XML_HEADINGS[HEADING_NAME]}>Heading</{XML_HEADINGS[HEADING_NAME]}>
+        <{XML_HEADINGS[HEADING_NO]}>No</{XML_HEADINGS[HEADING_NO]}>
+        <{XML_HEADINGS[HEADING_NAME]}>Name</{XML_HEADINGS[HEADING_NAME]}>
         <{XML_HEADINGS[HEADING_DESC]}>Description.</{XML_HEADINGS[HEADING_DESC]}>
         <{XML_HEADINGS[HEADING_ID]}>ID</{XML_HEADINGS[HEADING_ID]}>
         <{XML_HEADINGS[HEADING_PRE]}>Prerequisites.</{XML_HEADINGS[HEADING_PRE]}>
-        <{XML_HEADINGS[HEADING_STEPS]}>1. Step One.\n 2. Step Two.\n 3. Step Three.</{XML_HEADINGS[HEADING_STEPS]}>
-        <{XML_HEADINGS[HEADING_RESULTS]}>1. Expected Result One.\n 2. Expected Result Two.\n 3. Expected Result Three.</{XML_HEADINGS[HEADING_RESULTS]}>
+        <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.\n 2. Step two\n</{XML_HEADINGS[HEADING_STEPS]}>
+        <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.\n 2. Result two\n</{XML_HEADINGS[HEADING_RESULTS]}>
       </tc>
   """
 #      <tc>
@@ -180,14 +186,14 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   formatting_suffix = "</test-cases>"
   format_separator = ""
 
-  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} {secondary_target}. 
+  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} {secondary_target}. Test should be inferred from the High Level Design Document {document_id}
 
    The test cases must be {type} test cases.
 
    {formatting} 
    Do not generate any superfluous output that is not part of test case.
 
-   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the Test Case Definition.
+   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the Test Case Definition defined in Test_Case_definition.txt.
 
    """
 
@@ -203,7 +209,7 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
   output_array = []
   tests_remaining = num_tests
   while tests_remaining > 0:
-    query_output = send_query(ws, model, prompt, session_id, temperature, topp, max_tokens)
+    query_output = send_query(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
     stripped = enforce_format(query_output, "XML")
   
     if stripped:
@@ -253,7 +259,7 @@ def generate_tests(model, element, focus, format, temperature, topp, max_tokens,
 # Sends the query to the playground
 #
 ############################################################
-def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
+def send_query(sock, model, prompt, session_id, workspace_id, temperature, topp, max_tokens):
 
   provider = model_dict[model][0]
 
@@ -261,8 +267,10 @@ def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
   print("Model         :" + str(model))
   print("Max Tokens    :" + str(max_tokens))
   print("Session ID IN :" + str(session_id))
+  print("Workspace ID  :" + str(workspace_id))
   print("Temperature   :" + str(temperature))
   print("TopP          :" + str(topp))
+  print("Prompt Size   :" + str(len(prompt)))
   print("Prompt        :" + str(prompt))
 
   data = {
@@ -276,7 +284,8 @@ def send_query(sock, model, prompt, session_id, temperature, topp, max_tokens):
           "provider": provider,
 #          "provider": "bedrock",
           "sessionId": str(session_id),
-          "workspaceId": WORKSPACE_ID,
+#          "workspaceId": WORKSPACE_ID,
+          "workspaceId": workspace_id,
           "modelKwargs": {
               "streaming": False,
               "maxTokens": max_tokens,
@@ -368,106 +377,103 @@ def change_max_token_default(model_name):
 #########################################################################################################
 if __name__ == "__main__":
 
-  theme = gr.themes.Glass(primary_hue=gr.themes.colors.blue,
+   theme = gr.themes.Glass(primary_hue=gr.themes.colors.blue,
                           secondary_hue=gr.themes.colors.cyan)
-  #theme = gr.themes.Default()
-  #theme = gr.themes.Base()
-  #theme = gr.themes.Soft()
-  #theme = gr.themes.Monochrome()
+   #theme = gr.themes.Default()
+   #theme = gr.themes.Base()
+   #theme = gr.themes.Soft()
+   #theme = gr.themes.Monochrome()
 
-  prompt_element_template = """element"""
-  #prompt_element_template = """HSS"""
-  prompt_focus_template = "Focus on the area "
-  #prompt_focus_template = "Focus on the area Backup And Restore"
+   prompt_element_template = """element"""
+   #prompt_element_template = """HSS"""
+   prompt_focus_template = "Focus on the area "
+   #prompt_focus_template = "Focus on the area Backup And Restore"
 
-  url = SOCKET_URL
+   url = SOCKET_URL
 
-  output_str = ""
-  with gr.Blocks(theme=theme) as demo:
+   output_str = ""
+   with gr.Blocks(theme=theme) as demo:
+      with gr.Tab("Definition"):
 
-    generated_state = gr.State(False)
-    #gr.Label("Generate Tests for")
-    with gr.Row() as row1:
-       element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, info=ELEMENT_INFO, scale=1)
-       subsystem = gr.Textbox(label="Focus ", value=prompt_focus_template, info=FOCUS_INFO, scale=1)
+         #generated_state = gr.State(False)
+         #gr.Label("Generate Tests for")
+         with gr.Row() as row1:
+            element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, info=ELEMENT_INFO, scale=1)
+            subsystem = gr.Textbox(label="Focus ", value=prompt_focus_template, info=FOCUS_INFO, scale=2)
 
-    with gr.Row() as row2:
-       #num_tests = gr.Number(value=10, label="Number", info=NUMBER_INFO)
-       num_tests = gr.Number(value=10, label="Number")
-       format_gen = gr.Dropdown(choices=FORMAT_OPTIONS,
-                           label="Format",
-#                           info=FORMAT_INFO,
-                           value="HTML")
+         with gr.Row() as row2:
+            #num_tests = gr.Number(value=10, label="Number", info=NUMBER_INFO)
+            num_tests = gr.Number(value=10, label="Number")
+            format_gen = gr.Dropdown(choices=FORMAT_OPTIONS,
+                                     label="Format",
+#                                    info=FORMAT_INFO,
+                                     value="HTML")
 
-       role = gr.Dropdown(
-          choices=["Tester", "Software Engineer", "Customer", "Analyst"],
-#          info=ROLE_INFO,
-          value="Tester",
-          label="Role")
-       type = gr.Dropdown(choices=[
-          "Sunny Day", "Rainy Day", "Functional", "High Availability",
-          "Resilience", "Acceptance"
-       ],
-#          info=TEST_INFO,
-          value="Functional",
-          label="Test Type")
+            role = gr.Dropdown(choices=["Tester", "Software Engineer", "Customer", "Analyst"],
+#                              info=ROLE_INFO,
+                               value="Tester",
+                               label="Role")
+            type = gr.Dropdown(choices=[ "Sunny Day", "Rainy Day", "Functional", "High Availability", "Resilience", "Acceptance" ],
+#                              info=TEST_INFO,
+                               value="Functional",
+                               label="Test Type")
 
-    with gr.Row() as row3:
-       default_max_tokens = 2048
-       model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[1], label="Model", scale=2)
-       temperature = gr.Number(value=0.4, label="Temperature", scale=1)
-       topp = gr.Number(value=0.9, label="TopP", scale=1)
-       max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
-       model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
+      with gr.Tab("Settings"):
+         with gr.Row() as row3:
+            workspace = gr.Textbox(label="Workspace ID", value=DEFAULT_WORKSPACE, info=WORKSPACE_INFO, scale=1)
+            documentation = gr.Textbox(label="Document Title", value=DEFAULT_DOCUMENT_ID, info=DOCUMENT_INFO, scale=1)
+         with gr.Row() as row4:
+            default_max_tokens = 2048
+            model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[DEFAULT_MODEL_IDX], label="Model", scale=2)
+            temperature = gr.Number(value=0.4, label="Temperature", scale=1)
+            topp = gr.Number(value=0.9, label="TopP", scale=1)
+            max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
+            model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
 
-    gen_btn = gr.Button("Generate")
-    html_box = gr.HTML(visible=True) 
-    json_box = gr.JSON(visible=False)  
-    text_box = gr.Textbox(visible=False, show_label=False)
+      gen_btn = gr.Button("Generate")
+      html_box = gr.HTML(visible=True) 
+      json_box = gr.JSON(visible=False)  
+      text_box = gr.Textbox(visible=False, show_label=False)
 
-    with gr.Column(visible=False) as col1:
-       with gr.Row() as row4:
-          download = "Download"
-          download_btn = gr.DownloadButton(label=download)
+      with gr.Column(visible=False) as col1:
+         with gr.Row() as row4:
+            download = "Download"
+            download_btn = gr.DownloadButton(label=download)
 
-    #output_box = output_list[0]
+      #
+      # Inline function to change visibility
+      #
+      def change_output_box(format):
+         value = format
 
-    #
-    # Inline function to change visibility
-    #
-    def change_output_box(format):
-       value = format
+         if value == "HTML":
+            return  [gr.HTML(visible=True, value=data_object.asHTML()), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""),
+                     gr.DownloadButton(value=data_object.get_filename())]
+         elif value == "XML":
+            return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asXML()), 
+                     gr.DownloadButton(value=data_object.get_filename())]
+         elif value == "JSON":
+            return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value=data_object.asJSON()), gr.Textbox(visible=False, value=""), 
+                     gr.DownloadButton(value=data_object.get_filename())]
+         elif value == "CSV":
+            return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()),
+                     gr.DownloadButton(value=data_object.get_filename())]
+         else: 
+            return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), 
+                     gr.DownloadButton(value=data_object.get_filename())]
 
-       if value == "HTML":
-          return  [gr.HTML(visible=True, value=data_object.asHTML()), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""),
-                   gr.DownloadButton(value=data_object.get_filename())]
-       elif value == "XML":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asXML()), 
-                   gr.DownloadButton(value=data_object.get_filename())]
-       elif value == "JSON":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value=data_object.asJSON()), gr.Textbox(visible=False, value=""), 
-                   gr.DownloadButton(value=data_object.get_filename())]
-       elif value == "CSV":
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()),
-                   gr.DownloadButton(value=data_object.get_filename())]
-       else: 
-          return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), 
-                   gr.DownloadButton(value=data_object.get_filename())]
-
-    format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, download_btn])
+      format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, download_btn])
     
-    gen_btn.click(fn=generate_tests,
-                  inputs=[
-                      model, element, subsystem, format_gen, temperature, topp, max_tokens, num_tests,
-                      #model, element, subsystem, temperature, topp, max_tokens, num_tests,
-                      role, type,
-                  ],
-                  #outputs=output_list,
-                  outputs=[html_box, json_box, text_box, col1, download_btn],
-                  #outputs=[html_box, col1, download_btn],
-                  api_name="TCGen")
+      gen_btn.click(fn=generate_tests,
+                    inputs=[
+                       model, element, subsystem, format_gen, workspace, documentation, temperature, topp, max_tokens, num_tests, role, type,
+                    ],
+                    #outputs=output_list,
+                    outputs=[html_box, json_box, text_box, col1, download_btn],
+                    #outputs=[html_box, col1, download_btn],
+                    api_name="TCGen")
 
 
   #demo.launch(share=True, server_name="0.0.0.0")
   demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-  #demo.launch(server_name="0.0.0.0")
+  # demo.launch(server_name="0.0.0.0")

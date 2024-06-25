@@ -1,9 +1,10 @@
 A Test Case is defined as having the following fields:
 
-Number, abbreviated to No., and is the number of the test case in the table or document. This should start from one.
-Heading. A useful short description of the test case.
-Description. A summary of the test case.
-ID. An alphanumeric identifier, unique to the test and derived from the element under test and the number field. Must be a maximum of 7 characters. Can include _ or - characters.
-Prerequisites. Describes the preconditions needed for the tests to be executed.
-Test Steps. This is a series of at least 3 steps that clearly describes how to execute the test case. Each step shall be numbered.
-Expected Results. This describes the expected outcomes for each of the steps itemised in Test Steps.
+
+Number: abbreviated to No., and is the number of the test case in the table or document. This should start from one.
+Test Name: A useful short description of the test case.
+Description: A summary of the test case.
+ID: An alphanumeric identifier, unique to the test and derived from the element under test and the number field. Must be a maximum of 7 characters. Can include _ or - characters.
+Pre-Conditions: Describes the preconditions needed for the tests to be executed.
+Steps: This is a series of at least 3 steps, more if needed, that clearly describes how to execute the test case. Each step shall be numbered. The steps should include the following: Any parameters that need to be set or changed and what protocols will be used; any user interfaces the tester must use in order to carry out the instructions in the test step; any connectivity actions involved in the step.
+Expected Results: This describes the expected outcomes for each of the steps itemised in Test Steps, including any values that can be validated or any expected errors that will occur.
