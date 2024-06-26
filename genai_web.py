@@ -475,5 +475,5 @@ if __name__ == "__main__":
 
 
   #demo.launch(share=True, server_name="0.0.0.0")
-  demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+   demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
   # demo.launch(server_name="0.0.0.0")
