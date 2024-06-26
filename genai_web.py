@@ -17,8 +17,18 @@ from collections import OrderedDict
 from langchain_core.prompts import PromptTemplate
 
 
-DEFAULT_WORKSPACE = "8dac89ca-e319-4cfd-86c8-c8279c118904"
-DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+#DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
+#DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+#DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
+#PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
+#PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
+
+DEFAULT_WORKSPACE = ""
+DEFAULT_DOCUMENT_ID = ""
+PROMPT_ELEMENT_TEMPLATE = """element"""
+PROMPT_FOCUS_TEMPLATE = "Focus on the area "
+
+
 
 #WORKSPACE_ID = os.environ['WORKSPACE_ID']
 SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
@@ -48,14 +58,14 @@ model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
               "meta.llama3-8b-instruct-v1:0" : ("bedrock", 2048),
               "ai21.j2-ultra-v1" : ("bedrock", 4096),
               "amazon.titan-tg1-large" : ("bedrock", 4096) ,
-              "amazon.titan-text-premier-v1:0" : ("bedrock", 4096) ,
-              "amazon.titan-olympus-premier-v1:0" : ("bedrock", 4096) ,
-              "amazon.titan-text-lite-v1" : ("bedrock", 4096) ,
-              "amazon.titan-text-express-v1" : ("bedrock", 4096) ,
+#              "amazon.titan-text-premier-v1:0" : ("bedrock", 4096) ,
+#              "amazon.titan-olympus-premier-v1:0" : ("bedrock", 4096) ,
+#              "amazon.titan-text-lite-v1" : ("bedrock", 4096) ,
+#              "amazon.titan-text-express-v1" : ("bedrock", 4096) ,
               "ai21.j2-grande-instruct" : ("bedrock", 4096),
               "ai21.j2-jumbo-instruct" : ("bedrock", 4096),
-              "ai21.j2-mid" : ("bedrock", 4096),
-              "ai21.j2-mid-v1" : ("bedrock", 4096),
+#              "ai21.j2-mid" : ("bedrock", 4096),
+#              "ai21.j2-mid-v1" : ("bedrock", 4096),
               "ai21.j2-ultra" : ("bedrock", 4096),
               "ai21.j2-ultra-v1" : ("bedrock", 4096),
 	      "anthropic.claude-instant-v1" : ("bedrock", 4096),
@@ -66,7 +76,7 @@ model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
               "cohere.command-text-v14" : ("bedrock", 4096),
               "cohere.command-r-v1:0" : ("bedrock", 4096),
               "cohere.command-r-plus-v1:0" : ("bedrock", 4096),
-              "cohere.command-light-text-v14" : ("bedrock", 4096),
+#              "cohere.command-light-text-v14" : ("bedrock", 4096),
               "openai.gpt-3.5-turbo" : ("azure", 4096),
               "openai.gpt-4" : ("azure", 4096),
               "openai.gpt-4o" : ("azure", 4096) }
@@ -166,8 +176,8 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
         <{XML_HEADINGS[HEADING_DESC]}>Description.</{XML_HEADINGS[HEADING_DESC]}>
         <{XML_HEADINGS[HEADING_ID]}>ID</{XML_HEADINGS[HEADING_ID]}>
         <{XML_HEADINGS[HEADING_PRE]}>Prerequisites.</{XML_HEADINGS[HEADING_PRE]}>
-        <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.\n 2. Step two\n</{XML_HEADINGS[HEADING_STEPS]}>
-        <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.\n 2. Result two\n</{XML_HEADINGS[HEADING_RESULTS]}>
+        <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.; 2. Step two </{XML_HEADINGS[HEADING_STEPS]}>
+        <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.; 2. Result two </{XML_HEADINGS[HEADING_RESULTS]}>
       </tc>
   """
 #      <tc>
@@ -186,14 +196,14 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
   formatting_suffix = "</test-cases>"
   format_separator = ""
 
-  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element} {secondary_target}. Test should be inferred from the High Level Design Document {document_id}
+  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element}. {secondary_target}. Test should be inferred from the documentation: {document_id}. Include information obtained from this documentation explicity rather than referring to the document in the test case.
 
    The test cases must be {type} test cases.
 
    {formatting} 
    Do not generate any superfluous output that is not part of test case.
 
-   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the Test Case Definition defined in Test_Case_definition.txt.
+   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the definition of a Test Case as specified in Test_Case_definition.txt.
 
    """
 
@@ -384,10 +394,6 @@ if __name__ == "__main__":
    #theme = gr.themes.Soft()
    #theme = gr.themes.Monochrome()
 
-   prompt_element_template = """element"""
-   #prompt_element_template = """HSS"""
-   prompt_focus_template = "Focus on the area "
-   #prompt_focus_template = "Focus on the area Backup And Restore"
 
    url = SOCKET_URL
 
@@ -398,8 +404,8 @@ if __name__ == "__main__":
          #generated_state = gr.State(False)
          #gr.Label("Generate Tests for")
          with gr.Row() as row1:
-            element = gr.Textbox(label="Generate tests for ", value=prompt_element_template, info=ELEMENT_INFO, scale=1)
-            subsystem = gr.Textbox(label="Focus ", value=prompt_focus_template, info=FOCUS_INFO, scale=2)
+            element = gr.Textbox(label="Generate tests for ", value=PROMPT_ELEMENT_TEMPLATE, info=ELEMENT_INFO, scale=1)
+            subsystem = gr.Textbox(label="Focus ", value=PROMPT_FOCUS_TEMPLATE, info=FOCUS_INFO, scale=2)
 
          with gr.Row() as row2:
             #num_tests = gr.Number(value=10, label="Number", info=NUMBER_INFO)
@@ -413,7 +419,7 @@ if __name__ == "__main__":
 #                              info=ROLE_INFO,
                                value="Tester",
                                label="Role")
-            type = gr.Dropdown(choices=[ "Sunny Day", "Rainy Day", "Functional", "High Availability", "Resilience", "Acceptance" ],
+            type = gr.Dropdown(choices=[ "Sunny Day", "Rainy Day", "Functional", "High Availability", "Resilience", "Acceptance", "End-to-End" ],
 #                              info=TEST_INFO,
                                value="Functional",
                                label="Test Type")
@@ -474,6 +480,6 @@ if __name__ == "__main__":
                     api_name="TCGen")
 
 
-  #demo.launch(share=True, server_name="0.0.0.0")
+   #demo.launch(share=True, server_name="0.0.0.0")
    demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-  # demo.launch(server_name="0.0.0.0")
+   #demo.launch(server_name="0.0.0.0")

@@ -113,13 +113,12 @@ class XMLFormat(Format):
 #
 ################################################################################
     def asCSV(self):
-
-
        
        if not self.csv or len(self.csv) == 0:
 
           self.csv = ""
           self.csv += ",".join(self.headings.keys())
+          self.csv += "\n"
 
           if len(self.xml) <= 0:
              return "" 
@@ -134,6 +133,7 @@ class XMLFormat(Format):
              row = []
              for htag, xtag in self.headings.items():
                 row_text = tc.find(xtag).text
+                row_text = row_text.replace(',', ';')
                 row.append(row_text.replace('\n', ''))
                 #tc_obj[htag] = tc.find(xtag).text
                 #tc_obj[htag] = tc[xtag]
