@@ -8,27 +8,31 @@ from uuid import uuid4
 import re
 import time
 import datetime
+import requests
 import os
 import glob
 import gradio as gr
 from xml_format import XMLFormat
 from format import Format
 from collections import OrderedDict
+from pathlib import Path
 
 
 from langchain_core.prompts import PromptTemplate
 
 
-#DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
-#DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
+DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
 #DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
 #PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
 #PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
+PROMPT_ELEMENT_TEMPLATE = """HLR"""
+PROMPT_FOCUS_TEMPLATE = "Focus on the area Backup and Restore"
 
-DEFAULT_WORKSPACE = ""
-DEFAULT_DOCUMENT_ID = ""
-PROMPT_ELEMENT_TEMPLATE = """element"""
-PROMPT_FOCUS_TEMPLATE = "Focus on the area "
+#DEFAULT_WORKSPACE = ""
+#DEFAULT_DOCUMENT_ID = ""
+#PROMPT_ELEMENT_TEMPLATE = """element"""
+#PROMPT_FOCUS_TEMPLATE = "Focus on the area "
 
 FILENAME_PREFIX = "gentests-"
 
@@ -43,6 +47,7 @@ UI_USER = os.environ['UI_USER']
 TESTS_PER_CALL = 10
 
 FORMAT_OPTIONS = ["HTML", "JSON", "Excel (CSV)", "XML"]
+BACKEND_CHOICES=["Generative Engine", "Tuned Backend"] 
 
 ELEMENT_INFO="This is the element that is the subject of the tests" 
 FOCUS_INFO = "The area you want the tests to focus on, it could be a subsystem or a new area of functionality. Or a freeform instruction to the LLM (optional)"
@@ -225,7 +230,8 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
    output_array = []
    tests_remaining = num_tests
    while tests_remaining > 0:
-      query_output = send_query(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
+      #query_output = send_query(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
+      query_output = send_query_be(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
       stripped = enforce_format(query_output, "XML")
   
       if stripped:
@@ -273,10 +279,62 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 
 ############################################################
 #
+# Send the query to the internal backend
+#
+############################################################
+def send_query_be(sock, model, prompt, session_id, workspace_id, temperature, topp, max_tokens):
+
+   provider = model_dict[model][0]
+
+   print("Provider      :" + str(provider))
+   print("Model         :" + str(model))
+   print("Max Tokens    :" + str(max_tokens))
+   print("Session ID IN :" + str(session_id))
+   print("Workspace ID  :" + str(workspace_id))
+   print("Temperature   :" + str(temperature))
+   print("TopP          :" + str(topp))
+   print("Prompt Size   :" + str(len(prompt)))
+   print("Prompt        :" + str(prompt))
+
+
+   headers = {
+      'Content-Type': 'application/json',
+   }
+
+   payload = {
+      #"model": "amazon.titan-text-express-v1",
+      "model": "mistral.mixtral-8x7b-instruct-v0:1",
+      "temperature": temperature,
+      "maxTokenCount": 600,
+      "topP": topp,
+      "prompt": prompt
+   }
+
+   json_payload = json.dumps(payload)
+
+
+   resp = requests.post("http://192.168.0.121:5000/generate", headers=headers, data=json_payload)
+
+   resp_json = resp.json()
+   if resp.status_code == 200:
+      print('Request was successful.')
+      print('Response:',resp_json)
+      return resp_json["answer"]
+   else: 
+      print(f'Request failed with status code: {resp.status_code}')
+      print('Response:', resp.text)
+
+   
+
+
+
+
+############################################################
+#
 # Sends the query to the playground
 #
 ############################################################
-def send_query(sock, model, prompt, session_id, workspace_id, temperature, topp, max_tokens):
+def send_query_ge(sock, model, prompt, session_id, workspace_id, temperature, topp, max_tokens):
 
   provider = model_dict[model][0]
 
@@ -386,6 +444,27 @@ def change_max_token_default(model_name):
    number = model_dict[model_name][1] 
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
+
+##################################################################################
+#
+# Change the backend and reformat the GUI
+#
+##################################################################################
+def change_backend(backend, workspace, documentation, upload):
+   print("Changing Backend")
+
+   value = backend
+   if value == BACKEND_CHOICES[0]:
+      workspace = gr.Textbox(visible=True)
+      documentation = gr.Textbox(visible=True, interactive=True, value="")
+      upload = gr.UploadButton(visible=False)
+   elif value == BACKEND_CHOICES[1]:
+      workspace = gr.Textbox(visible=False)
+      documentation = gr.Textbox(visible=True, interactive=False, value="")
+      upload = gr.UploadButton(visible=True)
+
+   return [workspace, documentation, upload]
+
 ##################################################################################
 #
 # Deletes all files with the given suffixes
@@ -406,6 +485,34 @@ def delete_files():
             print(f"Deleted: {f}")
          except Exception as e:
             print(f"Failed to delete: {f}: {e}")
+
+
+##################################################################################
+#
+# Upload file
+#
+##################################################################################
+def upload_file(filepath, documentation):
+   name = Path(filepath).name
+   print("Uploading file:" + filepath)
+   print("name:" + name)
+   print("filepath.name:" + name)
+
+   with open(filepath.name, "rb") as file:
+
+      files = {'file': file}
+      resp = requests.post("http://192.168.0.121:5000/upload", files=files)
+
+      if resp.status_code == 200:
+         print('File uploaded successfully.')
+         #print('Response:', resp.json())
+      else:
+         print(f'File upload failed with status code: {resp.status_code}')
+         print('Response:', resp.text)
+
+
+   return name
+
 
 #########################################################################################################
 #
@@ -454,15 +561,22 @@ if __name__ == "__main__":
 
       with gr.Tab("Settings"):
          with gr.Row() as row3:
+            backend = gr.Dropdown(choices=BACKEND_CHOICES, value=BACKEND_CHOICES[0], label="Backend Engine", scale=1)
+         with gr.Row() as row4:
             workspace = gr.Textbox(label="Workspace ID", value=DEFAULT_WORKSPACE, info=WORKSPACE_INFO, scale=1)
             documentation = gr.Textbox(label="Document Title", value=DEFAULT_DOCUMENT_ID, info=DOCUMENT_INFO, scale=1)
-         with gr.Row() as row4:
+         with gr.Row() as row5:
+            upload = gr.UploadButton(label="Upload a HLD file", file_count="single", visible=False, scale=1)
+            upload.upload(upload_file, inputs=[upload, documentation], outputs=[documentation])
+         with gr.Row() as row6:
             default_max_tokens = 2048
             model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[DEFAULT_MODEL_IDX], label="Model", scale=2)
             temperature = gr.Number(value=0.4, label="Temperature", scale=1)
             topp = gr.Number(value=0.9, label="TopP", scale=1)
             max_tokens = gr.Number(value=4096, label="Max Tokens", scale=1)
             model.select(fn=change_max_token_default, inputs=model, outputs=max_tokens)
+
+         backend.select(fn=change_backend, inputs=[backend, workspace, documentation, upload], outputs=[workspace, documentation, upload])
 
       gen_btn = gr.Button("Generate")
       html_box = gr.HTML(visible=True) 
@@ -509,5 +623,5 @@ if __name__ == "__main__":
 
 
    #demo.launch(share=True, server_name="0.0.0.0")
-   demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-   #demo.launch(server_name="0.0.0.0")
+   #demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+   demo.launch(server_name="0.0.0.0")
