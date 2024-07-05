@@ -9,8 +9,10 @@ import re
 import time
 import datetime
 import os
+import glob
 import gradio as gr
 from xml_format import XMLFormat
+from format import Format
 from collections import OrderedDict
 
 
@@ -27,6 +29,8 @@ DEFAULT_WORKSPACE = ""
 DEFAULT_DOCUMENT_ID = ""
 PROMPT_ELEMENT_TEMPLATE = """element"""
 PROMPT_FOCUS_TEMPLATE = "Focus on the area "
+
+FILENAME_PREFIX = "gentests-"
 
 
 
@@ -135,51 +139,53 @@ def validate_focus(input):
 def generate_tests(model, element, focus, format, workspace_id, document_id, temperature, topp, max_tokens, num_tests,
                    role, type):
 
-  global data_object
-  session_id = uuid4()
+   global data_object
+   session_id = uuid4()
 
-  focus = str(focus)
-  element = str(element)
-  print("Element:" + element)
-  print("Focus(len):" + focus + ":" + str(len(focus)))
-  print("Format:" + format)
+   delete_files()
+ 
+   focus = str(focus)
+   element = str(element)
+   print("Element:" + element)
+   print("Focus(len):" + focus + ":" + str(len(focus)))
+   print("Format:" + format)
   
-  #response = [html_box, json_box, text_box, column, download_btn]
-  rc = ["", "{}", "", gr.Column(visible=True), None ]
+   #response = [html_box, json_box, text_box, column, download_btn]
+   rc = ["", "{}", "", gr.Column(visible=True), None ]
 
-  if not validate_element(element):
-    return "Invalid Element input"
+   if not validate_element(element):
+      return "Invalid Element input"
 
-  if not validate_focus(focus):
-    return "Invalid Focus input"
+   if not validate_focus(focus):
+      return "Invalid Focus input"
 
-  if num_tests >= TESTS_PER_CALL:
-    num_tests_to_ask_for = TESTS_PER_CALL
-  else:
-    num_tests_to_ask_for = num_tests
+   if num_tests >= TESTS_PER_CALL:
+      num_tests_to_ask_for = TESTS_PER_CALL
+   else:
+      num_tests_to_ask_for = num_tests
 
-  secondary_target = ""
+   secondary_target = ""
 
-  if 0 < len(focus):
-     #secondary_target = f" including the for the service {focus}."
-     secondary_target = f"{focus}."
+   if 0 < len(focus):
+      #secondary_target = f" including the for the service {focus}."
+      secondary_target = f"{focus}."
 
-  formatting_prefix = ""
-  formatting_suffix = ""
-  format_separator = ""
+   formatting_prefix = ""
+   formatting_suffix = ""
+   format_separator = ""
 
-  formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
-    Here is an example of the desired output for a single test case : 
-      <tc>
-        <{XML_HEADINGS[HEADING_NO]}>No</{XML_HEADINGS[HEADING_NO]}>
-        <{XML_HEADINGS[HEADING_NAME]}>Name</{XML_HEADINGS[HEADING_NAME]}>
-        <{XML_HEADINGS[HEADING_DESC]}>Description.</{XML_HEADINGS[HEADING_DESC]}>
-        <{XML_HEADINGS[HEADING_ID]}>ID</{XML_HEADINGS[HEADING_ID]}>
-        <{XML_HEADINGS[HEADING_PRE]}>Prerequisites.</{XML_HEADINGS[HEADING_PRE]}>
-        <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.; 2. Step two </{XML_HEADINGS[HEADING_STEPS]}>
-        <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.; 2. Result two </{XML_HEADINGS[HEADING_RESULTS]}>
-      </tc>
-  """
+   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
+      Here is an example of the desired output for a single test case : 
+         <tc>
+           <{XML_HEADINGS[HEADING_NO]}>No</{XML_HEADINGS[HEADING_NO]}>
+           <{XML_HEADINGS[HEADING_NAME]}>Name</{XML_HEADINGS[HEADING_NAME]}>
+           <{XML_HEADINGS[HEADING_DESC]}>Description.</{XML_HEADINGS[HEADING_DESC]}>
+           <{XML_HEADINGS[HEADING_ID]}>ID</{XML_HEADINGS[HEADING_ID]}>
+           <{XML_HEADINGS[HEADING_PRE]}>Prerequisites.</{XML_HEADINGS[HEADING_PRE]}>
+           <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.; 2. Step two </{XML_HEADINGS[HEADING_STEPS]}>
+           <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.; 2. Result two </{XML_HEADINGS[HEADING_RESULTS]}>
+         </tc>
+    """
 #      <tc>
 #        <{XML_HEADINGS[HEADING_NO]}>1</{XML_HEADINGS[HEADING_NO]}>
 #        <{XML_HEADINGS[HEADING_NAME]}>Backup and Restore of Filesystem Data</{XML_HEADINGS[HEADING_NAME]}>
@@ -191,21 +197,21 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 #      </tc>
 #  """
 
-  display_idx = 0
-  formatting_prefix = "<test-cases>"
-  formatting_suffix = "</test-cases>"
-  format_separator = ""
+   display_idx = 0
+   formatting_prefix = "<test-cases>"
+   formatting_suffix = "</test-cases>"
+   format_separator = ""
 
-  prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element}. {secondary_target}. Test should be inferred from the documentation: {document_id}. Include information obtained from this documentation explicity rather than referring to the document in the test case.
+   prompt = f"""You are a {role}. Generate {num_tests_to_ask_for} unique test cases for {element}. {secondary_target}. Test should be inferred from the documentation: {document_id}. Include information obtained from this documentation explicity rather than referring to the document in the test case.
 
-   The test cases must be {type} test cases.
+     The test cases must be {type} test cases.
+ 
+     {formatting} 
+     Do not generate any superfluous output that is not part of test case.
 
-   {formatting} 
-   Do not generate any superfluous output that is not part of test case.
+     The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the definition of a Test Case as specified in Test_Case_definition.txt.
 
-   The test cases must contain the fields in the following order: {HEADING_NO}, {HEADING_NAME}, {HEADING_DESC}, {HEADING_ID}, {HEADING_PRE}, {HEADING_STEPS}, and {HEADING_RESULTS} as specified by the definition of a Test Case as specified in Test_Case_definition.txt.
-
-   """
+     """
 
 #   {HEADING_NO}' is an abbreviation for number. This is a unique integer for each test case, starting from 1 and incrementing by 1 for each test case. 
 #   {HEADING_NAME} is a useful short description of the test. 
@@ -215,54 +221,55 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 #   {HEADING_STEPS} is a series of at least 3 steps that clearly describes how to execute the test case. Each step must be numbered. 
 #   {HEADING_RESULTS} describes the expected outcome for each step itemised in, each outcome must be numbered {HEADING_STEPS}.
 
-  ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
-  output_array = []
-  tests_remaining = num_tests
-  while tests_remaining > 0:
-    query_output = send_query(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
-    stripped = enforce_format(query_output, "XML")
+   ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
+   output_array = []
+   tests_remaining = num_tests
+   while tests_remaining > 0:
+      query_output = send_query(ws, model, prompt, session_id, workspace_id, temperature, topp, max_tokens)
+      stripped = enforce_format(query_output, "XML")
   
-    if stripped:
-       output_array.append(stripped)
+      if stripped:
+         output_array.append(stripped)
 
-    tests_remaining -= num_tests_to_ask_for
-    if tests_remaining >= TESTS_PER_CALL:
-      num_tests_to_ask_for = TESTS_PER_CALL
-    else:
-      num_tests_to_ask_for = tests_remaining
-    prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
+      tests_remaining -= num_tests_to_ask_for
+      if tests_remaining >= TESTS_PER_CALL:
+         num_tests_to_ask_for = TESTS_PER_CALL
+      else:
+         num_tests_to_ask_for = tests_remaining
+      prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
 
-    print("Response Length:" + str(len(query_output)))
-  ws.close()
-  output = format_separator.join(output_array)
+      print("Response Length:" + str(len(query_output)))
+   ws.close()
+   output = format_separator.join(output_array)
 
-  data_object = XMLFormat(f"{formatting_prefix}{output}{formatting_suffix}", XML_HEADINGS)
+   data_object = XMLFormat(f"{formatting_prefix}{output}{formatting_suffix}", XML_HEADINGS)
 
-  current_time = datetime.datetime.now()
-  filename_base = "gentests-" + current_time.strftime("%Y%m%d-%H%M")
-  print("Filename Base:" + filename_base)
-  data_object.set_filename_base(filename_base)
+   current_time = datetime.datetime.now()
   
-  if format == FORMAT_OPTIONS[0]: #HTML
-     rc[0] = data_object.asHTML()
-     filename = filename_base + ".html"
-  elif format == FORMAT_OPTIONS[1]: #JSON
-     rc[1] = data_object.asJSON()
-     filename = filename_base + ".json"
-  elif format == FORMAT_OPTIONS[2]: #CSV
-     rc[2] = data_object.asCSV()
-     filename = filename_base + ".csv"
-  elif format == FORMAT_OPTIONS[3]: #XML
-     rc[2] = data_object.asXML()
-     filename = filename_base + ".xml"
-  else:
-     rc[2] = data_object.asCSV() #OTHER
-     filename = filename_base + ".txt"
+   filename_base = FILENAME_PREFIX + current_time.strftime("%Y%m%d-%H%M")
+   print("Filename Base:" + filename_base)
+   data_object.set_filename_base(filename_base)
+  
+   if format == FORMAT_OPTIONS[0]: #HTML
+      rc[0] = data_object.asHTML()
+      filename = filename_base + ".html"
+   elif format == FORMAT_OPTIONS[1]: #JSON
+      rc[1] = data_object.asJSON()
+      filename = filename_base + ".json"
+   elif format == FORMAT_OPTIONS[2]: #CSV
+      rc[2] = data_object.asCSV()
+      filename = filename_base + ".csv"
+   elif format == FORMAT_OPTIONS[3]: #XML
+      rc[2] = data_object.asXML()
+      filename = filename_base + ".xml"
+   else:
+      rc[2] = data_object.asCSV() #OTHER
+      filename = filename_base + ".txt"
 
-  print("Download Filename:" + str(filename))
-  rc[4] = gr.DownloadButton(value=filename, visible=True)
+   print("Download Filename:" + str(filename))
+   rc[4] = gr.DownloadButton(value=filename, visible=True)
 
-  return rc
+   return rc
 
 ############################################################
 #
@@ -379,6 +386,26 @@ def change_max_token_default(model_name):
    number = model_dict[model_name][1] 
    return gr.Number(value=number, label="Max Tokens", scale=1)
 
+##################################################################################
+#
+# Deletes all files with the given suffixes
+#
+##################################################################################
+def delete_files():
+
+   for suffix in [Format.HTML_SUFFIX, Format.JSON_SUFFIX, Format.CSV_SUFFIX, Format.TXT_SUFFIX]:
+      
+      print(f"Deleting "+ FILENAME_PREFIX+"*"+suffix + " files")
+      directory = "./"
+      search_pattern = search_pattern = os.path.join(directory, FILENAME_PREFIX+"*"+suffix)
+      files = glob.glob(search_pattern)
+
+      for f in files:
+         try:
+            os.remove(f)
+            print(f"Deleted: {f}")
+         except Exception as e:
+            print(f"Failed to delete: {f}: {e}")
 
 #########################################################################################################
 #
@@ -393,6 +420,7 @@ if __name__ == "__main__":
    #theme = gr.themes.Base()
    #theme = gr.themes.Soft()
    #theme = gr.themes.Monochrome()
+
 
 
    url = SOCKET_URL
