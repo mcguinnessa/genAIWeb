@@ -541,7 +541,11 @@ def upload_file(filepath, documentation):
 
    rc = name + ":"
    backend = get_backend()
-   id = backend.upload_file(filepath.name)
+
+   try:
+      id = backend.upload_file(filepath.name)
+   except Exception as e:
+      id = str(e)
 
 #   with open(filepath.name, "rb") as file:
 #
