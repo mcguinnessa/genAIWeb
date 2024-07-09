@@ -24,7 +24,7 @@ class BackendGenerativeEngine(Backend):
    # Sends the query to the playground
    #
    ############################################################
-   def send_query_impl(self, model, provider, prompt, session_id, workspace_id, temperature, topp, max_tokens):
+   def send_query_impl(self, model, provider, prompt, session_id, workspace_id, document_id, temperature, topp, max_tokens):
 
       data = {
           "action": "run",
