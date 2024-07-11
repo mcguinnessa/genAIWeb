@@ -273,7 +273,8 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
          num_tests_to_ask_for = TESTS_PER_CALL
       else:
          num_tests_to_ask_for = tests_remaining
-      prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
+      #prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
+      prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same XML format requirements. Ensure the numbering of {HEADING_NO} is continuous"
 
       print("Response Length:" + str(len(output)))
 
@@ -452,13 +453,13 @@ def delete_files():
 # Upload file
 #
 ##################################################################################
-def upload_file(filepath, documentation):
+def upload_file(filepath, documentation, existing_workspaces):
    name = Path(filepath).name
 #   print("Uploading file:" + filepath)
    print("name:" + name)
 #   print("filepath.name:" + name)
 
-   rc = name + ":"
+   #rc = name + ":"
    backend = get_backend()
 
    try:
@@ -466,7 +467,11 @@ def upload_file(filepath, documentation):
    except Exception as e:
       id = str(e)
 
-   return id, name
+   choices = [name]
+   #choices.append(name)
+   existing_workspaces = gr.Dropdown(choices=choices, label="Existing workspaces", value=name, visible=True, scale=1)
+
+   return id, name, existing_workspaces
 
 
 #########################################################################################################
@@ -521,7 +526,7 @@ if __name__ == "__main__":
             documentation = gr.Textbox(label="Document Title", value=DEFAULT_DOCUMENT_ID, info=DOCUMENT_INFO, scale=1)
          with gr.Row() as row5:
             upload = gr.UploadButton(label="Upload a HLD file", file_count="single", visible=False, scale=1)
-            upload.upload(upload_file, inputs=[upload, documentation], outputs=[workspace, documentation])
+            upload.upload(upload_file, inputs=[upload, documentation, existing_workspaces], outputs=[workspace, documentation, existing_workspaces])
          with gr.Row() as row6:
             default_max_tokens = 2048
             model = gr.Dropdown(choices=model_dict.keys(), value=list(model_dict.keys())[DEFAULT_MODEL_IDX], label="Model", scale=2)
