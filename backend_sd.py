@@ -32,6 +32,7 @@ class BackendSingleDoc(Backend):
          "topP": topp,
          "prompt": prompt,
          "workspace": workspace_id,
+         "sessionId": str(session_id),
          "filename": document_id
       }
 

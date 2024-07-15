@@ -23,16 +23,16 @@ from backend_sd import BackendSingleDoc
 
 from langchain_core.prompts import PromptTemplate
 
-DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
-DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+#DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
+#DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
 #DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
 #PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
-#PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
+PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
 PROMPT_ELEMENT_TEMPLATE = """HLR"""
 PROMPT_FOCUS_TEMPLATE = "Focus on the area Backup and Restore"
 
-#DEFAULT_WORKSPACE = ""
-#DEFAULT_DOCUMENT_ID = ""
+DEFAULT_WORKSPACE = ""
+DEFAULT_DOCUMENT_ID = ""
 #PROMPT_ELEMENT_TEMPLATE = """element"""
 #PROMPT_FOCUS_TEMPLATE = "Focus on the area "
 
@@ -197,8 +197,8 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
    formatting_suffix = ""
    format_separator = ""
 
-   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
-      Here is an example of the desired output for a single test case : 
+
+   example_tc = f"""Here is an example of the desired output for a single test case :
          <tc>
            <{XML_HEADINGS[HEADING_NO]}>No</{XML_HEADINGS[HEADING_NO]}>
            <{XML_HEADINGS[HEADING_NAME]}>Name</{XML_HEADINGS[HEADING_NAME]}>
@@ -208,6 +208,11 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
            <{XML_HEADINGS[HEADING_STEPS]}>1. Step one.; 2. Step two </{XML_HEADINGS[HEADING_STEPS]}>
            <{XML_HEADINGS[HEADING_RESULTS]}>1. Result one.; 2. Result two </{XML_HEADINGS[HEADING_RESULTS]}>
          </tc>
+    """
+
+
+   formatting = f"""Each test cases must be presented as an XML object. The number must start from 1.
+      {example_tc}
     """
 #      <tc>
 #        <{XML_HEADINGS[HEADING_NO]}>1</{XML_HEADINGS[HEADING_NO]}>
@@ -273,8 +278,12 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
          num_tests_to_ask_for = TESTS_PER_CALL
       else:
          num_tests_to_ask_for = tests_remaining
+
+      next_test_num = (num_tests - tests_remaining) + 1
       #prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same requirements in the same output format. Ensure the numbering is continuous"
-      prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same XML format requirements. Ensure the numbering of {HEADING_NO} is continuous"
+      #prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the previously specified requirements and the previous example test case. Ensure the numbering of {HEADING_NO} continues from the last one generated,"
+      prompt = f"Generate a further {num_tests_to_ask_for} test cases. Ensure all previous requirements are satisfied The {HEADING_NO} should start from {next_test_num} and increment for each test case. {example_tc}"
+      #prompt = f"Generate another {num_tests_to_ask_for} unique test cases using the same XML format requirements. Ensure the numbering of {HEADING_NO} is consistent with the previously generated test cases"
 
       print("Response Length:" + str(len(output)))
 
