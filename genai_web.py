@@ -10,7 +10,7 @@ import time
 import datetime
 import requests
 import os
-import glob
+#import glob
 import gradio as gr
 from xml_format import XMLFormat
 from format import Format
@@ -23,22 +23,24 @@ from backend_sd import BackendSingleDoc
 
 from langchain_core.prompts import PromptTemplate
 
-#DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
-#DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
-#DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
-#PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
+DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
+DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
+PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
 PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
-PROMPT_ELEMENT_TEMPLATE = """HLR"""
-PROMPT_FOCUS_TEMPLATE = "Focus on the area Backup and Restore"
 
-DEFAULT_WORKSPACE = ""
-DEFAULT_DOCUMENT_ID = ""
+#DEFAULT_WORKSPACE = "8dac89ca-e319-4cfd-86c8-c8279c118904"
+#DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
+#PROMPT_ELEMENT_TEMPLATE = """HLR"""
+#PROMPT_FOCUS_TEMPLATE = "Focus on the area Backup and Restore"
+
+#DEFAULT_WORKSPACE = ""
+#DEFAULT_DOCUMENT_ID = ""
 #PROMPT_ELEMENT_TEMPLATE = """element"""
 #PROMPT_FOCUS_TEMPLATE = "Focus on the area "
 
 SD_BACKEND_URL = "http://192.168.0.121:5000"
 
-FILENAME_PREFIX = "gentests-"
+#FILENAME_PREFIX = "gentests-"
 
 g_backend = Backend.GENERATIVE_ENGINE
 g_existing_workspaces = {}
@@ -70,18 +72,18 @@ model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
               "meta.llama2-70b-chat-v1" : ("bedrock", 2048),
               "meta.llama3-70b-instruct-v1:0" : ("bedrock", 2048),
               "meta.llama3-8b-instruct-v1:0" : ("bedrock", 2048),
-              "ai21.j2-ultra-v1" : ("bedrock", 4096),
+#              "ai21.j2-ultra-v1" : ("bedrock", 4096),
               "amazon.titan-tg1-large" : ("bedrock", 4096) ,
 #              "amazon.titan-text-premier-v1:0" : ("bedrock", 4096) ,
 #              "amazon.titan-olympus-premier-v1:0" : ("bedrock", 4096) ,
 #              "amazon.titan-text-lite-v1" : ("bedrock", 4096) ,
 #              "amazon.titan-text-express-v1" : ("bedrock", 4096) ,
-              "ai21.j2-grande-instruct" : ("bedrock", 4096),
-              "ai21.j2-jumbo-instruct" : ("bedrock", 4096),
+#              "ai21.j2-grande-instruct" : ("bedrock", 4096),
+#              "ai21.j2-jumbo-instruct" : ("bedrock", 4096),
 #              "ai21.j2-mid" : ("bedrock", 4096),
 #              "ai21.j2-mid-v1" : ("bedrock", 4096),
-              "ai21.j2-ultra" : ("bedrock", 4096),
-              "ai21.j2-ultra-v1" : ("bedrock", 4096),
+#              "ai21.j2-ultra" : ("bedrock", 4096),
+#              "ai21.j2-ultra-v1" : ("bedrock", 4096),
 	      "anthropic.claude-instant-v1" : ("bedrock", 4096),
               "anthropic.claude-v2:1" : ("bedrock", 4096),
               "anthropic.claude-v2" : ("bedrock", 4096),
@@ -91,8 +93,8 @@ model_dict = {"mistral.mixtral-8x7b-instruct-v0:1" : ("bedrock", 4096),
               "cohere.command-r-v1:0" : ("bedrock", 4096),
               "cohere.command-r-plus-v1:0" : ("bedrock", 4096),
 #              "cohere.command-light-text-v14" : ("bedrock", 4096),
-              "openai.gpt-3.5-turbo" : ("azure", 4096),
-              "openai.gpt-4" : ("azure", 4096),
+#              "openai.gpt-3.5-turbo" : ("azure", 4096),
+#              "openai.gpt-4" : ("azure", 4096),
               "openai.gpt-4o" : ("azure", 4096) }
             
 HEADING_NO = "No."
@@ -165,7 +167,8 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 
    session_id = uuid4()
 
-   delete_files()
+   Format.delete_files()
+  
  
    focus = str(focus)
    element = str(element)
@@ -301,27 +304,32 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 
    data_object = XMLFormat(f"{formatting_prefix}{output}{formatting_suffix}", XML_HEADINGS)
 
-   current_time = datetime.datetime.now()
-  
-   filename_base = FILENAME_PREFIX + current_time.strftime("%Y%m%d-%H%M")
-   print("Filename Base:" + filename_base)
-   data_object.set_filename_base(filename_base)
+#   current_time = datetime.datetime.now()
+#  
+#   filename_base = FILENAME_PREFIX + current_time.strftime("%Y%m%d-%H%M")
+#   print("Filename Base:" + filename_base)
+#   data_object.set_filename_base(filename_base)
   
    if format == FORMAT_OPTIONS[0]: #HTML
       rc[0] = data_object.asHTML()
-      filename = filename_base + ".html"
+      #filename = filename_base + ".html"
+      filename = data_object.getHTMLFilename()
    elif format == FORMAT_OPTIONS[1]: #JSON
       rc[1] = data_object.asJSON()
-      filename = filename_base + ".json"
+      #filename = filename_base + ".json"
+      filename = data_object.getJSONFilename()
    elif format == FORMAT_OPTIONS[2]: #CSV
       rc[2] = data_object.asCSV()
-      filename = filename_base + ".csv"
+      #filename = filename_base + ".csv"
+      filename = data_object.getCSVFilename()
    elif format == FORMAT_OPTIONS[3]: #XML
       rc[2] = data_object.asXML()
-      filename = filename_base + ".xml"
+      #filename = filename_base + ".xml"
+      filename = data_object.getXMLFilename()
    else:
       rc[2] = data_object.asCSV() #OTHER
-      filename = filename_base + ".txt"
+      #filename = filename_base + ".txt"
+      filename = data_object.getCSVFilename()
 
    print("Download Filename:" + str(filename))
    rc[4] = gr.DownloadButton(value=filename, visible=True)
@@ -440,22 +448,22 @@ def change_backend(backend, existing_workspaces, workspace, documentation, uploa
 # Deletes all files with the given suffixes
 #
 ##################################################################################
-def delete_files():
-
-   for suffix in [Format.HTML_SUFFIX, Format.JSON_SUFFIX, Format.CSV_SUFFIX, Format.TXT_SUFFIX]:
-      
-      print(f"Deleting "+ FILENAME_PREFIX+"*"+suffix + " files")
-      directory = "./"
-      search_pattern = search_pattern = os.path.join(directory, FILENAME_PREFIX+"*"+suffix)
-      files = glob.glob(search_pattern)
-
-      for f in files:
-         try:
-            os.remove(f)
-            print(f"Deleted: {f}")
-         except Exception as e:
-            print(f"Failed to delete: {f}: {e}")
-
+#def delete_files():
+#
+#   for suffix in [Format.HTML_SUFFIX, Format.JSON_SUFFIX, Format.CSV_SUFFIX, Format.XML_SUFFIX]:
+#      
+#      print(f"Deleting "+ FILENAME_PREFIX+"*"+suffix + " files")
+#      directory = "./"
+#      search_pattern = search_pattern = os.path.join(directory, FILENAME_PREFIX+"*"+suffix)
+#      files = glob.glob(search_pattern)
+#
+#      for f in files:
+#         try:
+#            os.remove(f)
+#            print(f"Deleted: {f}")
+#         except Exception as e:
+#            print(f"Failed to delete: {f}: {e}")
+#
 
 ##################################################################################
 #
@@ -565,21 +573,21 @@ if __name__ == "__main__":
       def change_output_box(format):
          value = format
 
-         if value == "HTML":
+         if value == FORMAT_OPTIONS[0]: #HTML
             return  [gr.HTML(visible=True, value=data_object.asHTML()), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=False, value=""),
-                     gr.DownloadButton(value=data_object.get_filename())]
-         elif value == "XML":
+                     gr.DownloadButton(value=data_object.getHTMLFilename())]
+         elif value == FORMAT_OPTIONS[3]: #XML
             return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asXML()), 
-                     gr.DownloadButton(value=data_object.get_filename())]
-         elif value == "JSON":
+                     gr.DownloadButton(value=data_object.getXMLFilename())]
+         elif value == FORMAT_OPTIONS[1]: #JSON
             return  [gr.HTML(visible=False, value=""), gr.JSON(visible=True, value=data_object.asJSON()), gr.Textbox(visible=False, value=""), 
-                     gr.DownloadButton(value=data_object.get_filename())]
-         elif value == "CSV":
+                     gr.DownloadButton(value=data_object.getJSONFilename())]
+         elif value == FORMAT_OPTIONS[2]: #CSV / EXCEL
             return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()),
-                     gr.DownloadButton(value=data_object.get_filename())]
+                     gr.DownloadButton(value=data_object.getCSVFilename())]
          else: 
             return  [gr.HTML(visible=False, value=""), gr.JSON(visible=False, value="{}"), gr.Textbox(visible=True, value=data_object.asCSV()), 
-                     gr.DownloadButton(value=data_object.get_filename())]
+                     gr.DownloadButton(value=data_object.getXMLFilename())]
 
       format_gen.select(fn=change_output_box, inputs=format_gen, outputs=[html_box, json_box, text_box, download_btn])
     

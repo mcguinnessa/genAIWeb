@@ -10,9 +10,11 @@ import xml.etree.ElementTree as ET
 ################################################################################
 class XMLFormat(Format):
     def __init__(self, body, headings):
-        super(XMLFormat, self).__init__()
-        self.xml = body
-        self.headings = headings
+       super(XMLFormat, self).__init__()
+       self.xml = body
+       self.headings = headings
+       #self.asXML()
+       self.write_to_file_as_text(self.xml, Format.XML_SUFFIX)
 
 ################################################################################
 #
@@ -20,12 +22,14 @@ class XMLFormat(Format):
 #
 ################################################################################
     def asXML(self):
-       if not self.xml or len(self.xml) == 0:
-
-          if len(self.xml) <= 0:
-             return ""
-
-          self.write_to_file_as_text(self.xml)
+#       if not self.xml or len(self.xml) == 0:
+#
+#          if len(self.xml) <= 0:
+#             return ""
+#
+#          self.write_to_file_as_text(self.xml, Format.XML_SUFFIX)
+#
+       print("Returning XML Format:" + str(self.xml))  
        return self.xml
 
 ################################################################################

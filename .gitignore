@@ -5,6 +5,7 @@
 
 *.html
 *.json
+*.xml
 *.csv
 *.docx
 
