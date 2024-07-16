@@ -7,12 +7,12 @@ from backend import Backend
 
 class BackendGenerativeEngine(Backend):
 
-   SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
+#   SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
 
-   def __init__(self, api_token):
+   def __init__(self, url, api_token):
       """Generative Engine"""
       print("Backend is Generative Engine")
-      self.ws = websocket.create_connection(self.SOCKET_URL, header={"x-api-key": api_token})
+      self.ws = websocket.create_connection(url, header={"x-api-key": api_token})
 
    def __del__(self):
       # body of destructor

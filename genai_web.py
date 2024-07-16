@@ -10,7 +10,6 @@ import time
 import datetime
 import requests
 import os
-#import glob
 import gradio as gr
 from xml_format import XMLFormat
 from format import Format
@@ -19,7 +18,6 @@ from pathlib import Path
 from backend_enum import Backend
 from backend_ge import BackendGenerativeEngine
 from backend_sd import BackendSingleDoc
-
 
 from langchain_core.prompts import PromptTemplate
 
@@ -38,18 +36,18 @@ PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
 #PROMPT_ELEMENT_TEMPLATE = """element"""
 #PROMPT_FOCUS_TEMPLATE = "Focus on the area "
 
-SD_BACKEND_URL = "http://192.168.0.121:5000"
-
-#FILENAME_PREFIX = "gentests-"
 
 g_backend = Backend.GENERATIVE_ENGINE
 g_existing_workspaces = {}
 
-#WORKSPACE_ID = os.environ['WORKSPACE_ID']
-#SOCKET_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
 API_TOKEN = os.environ['API_KEY']
 UI_PASSWORD = os.environ['UI_PASSWORD']
 UI_USER = os.environ['UI_USER']
+SD_BACKEND_URL = os.environ['SD_BACKEND_URL']
+GE_BACKEND_URL = os.environ['GE_BACKEND_URL']
+#SD_BACKEND_URL = "http://192.168.0.121:5000"
+#GE_BACKEND_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
+
 
 TESTS_PER_CALL = 10
 
@@ -150,7 +148,7 @@ def validate_focus(input):
 ############################################################
 def get_backend():
    if g_backend == Backend.GENERATIVE_ENGINE:
-      return BackendGenerativeEngine(API_TOKEN)
+      return BackendGenerativeEngine(GE_BACKEND_URL, API_TOKEN)
    elif g_backend == Backend.SINGLE_DOC:
       return BackendSingleDoc(SD_BACKEND_URL)
 
@@ -252,19 +250,11 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 #   {HEADING_STEPS} is a series of at least 3 steps that clearly describes how to execute the test case. Each step must be numbered. 
 #   {HEADING_RESULTS} describes the expected outcome for each step itemised in, each outcome must be numbered {HEADING_STEPS}.
 
-#   if g_backend == Backend.GENERATIVE_ENGINE:
-#      backend = BackendGenerativeEngine(API_TOKEN)
-#   elif g_backend == Backend.GENERATIVE_ENGINE:
-#      backend = BackendSingleDoc()
    backend = get_backend()
 
-#   ws = websocket.create_connection(url, header={"x-api-key": API_TOKEN})
    output_array = []
    tests_remaining = num_tests
    while tests_remaining > 0:
-
-
-
 
       provider = model_dict[model][0]
 
@@ -290,45 +280,24 @@ def generate_tests(model, element, focus, format, workspace_id, document_id, tem
 
       print("Response Length:" + str(len(output)))
 
-
-#   ws.close()
-
-
-
-
-
-
-
-
    output = format_separator.join(output_array)
 
    data_object = XMLFormat(f"{formatting_prefix}{output}{formatting_suffix}", XML_HEADINGS)
 
-#   current_time = datetime.datetime.now()
-#  
-#   filename_base = FILENAME_PREFIX + current_time.strftime("%Y%m%d-%H%M")
-#   print("Filename Base:" + filename_base)
-#   data_object.set_filename_base(filename_base)
-  
    if format == FORMAT_OPTIONS[0]: #HTML
       rc[0] = data_object.asHTML()
-      #filename = filename_base + ".html"
       filename = data_object.getHTMLFilename()
    elif format == FORMAT_OPTIONS[1]: #JSON
       rc[1] = data_object.asJSON()
-      #filename = filename_base + ".json"
       filename = data_object.getJSONFilename()
    elif format == FORMAT_OPTIONS[2]: #CSV
       rc[2] = data_object.asCSV()
-      #filename = filename_base + ".csv"
       filename = data_object.getCSVFilename()
    elif format == FORMAT_OPTIONS[3]: #XML
       rc[2] = data_object.asXML()
-      #filename = filename_base + ".xml"
       filename = data_object.getXMLFilename()
    else:
       rc[2] = data_object.asCSV() #OTHER
-      #filename = filename_base + ".txt"
       filename = data_object.getCSVFilename()
 
    print("Download Filename:" + str(filename))
@@ -430,40 +399,14 @@ def change_backend(backend, existing_workspaces, workspace, documentation, uploa
       backend = get_backend()
       g_existing_workspaces = backend.get_existing_workspaces()
       choices = g_existing_workspaces.keys()
-#      for ws in g_existing_workspaces:
-#         choices.append(ws["filename"])
 
       if len(g_existing_workspaces) > 0:
          existing_workspaces = gr.Dropdown(choices=choices, label="Existing workspaces", visible=True, scale=1)
       else:
          existing_workspaces = gr.Dropdown(choices=[], label="Existing workspaces", visible=False, scale=1)
-      #for ws in workspaces:
-      #   print("WS: "+ str(ws))
      
 
    return [existing_workspaces, workspace, documentation, upload]
-
-##################################################################################
-#
-# Deletes all files with the given suffixes
-#
-##################################################################################
-#def delete_files():
-#
-#   for suffix in [Format.HTML_SUFFIX, Format.JSON_SUFFIX, Format.CSV_SUFFIX, Format.XML_SUFFIX]:
-#      
-#      print(f"Deleting "+ FILENAME_PREFIX+"*"+suffix + " files")
-#      directory = "./"
-#      search_pattern = search_pattern = os.path.join(directory, FILENAME_PREFIX+"*"+suffix)
-#      files = glob.glob(search_pattern)
-#
-#      for f in files:
-#         try:
-#            os.remove(f)
-#            print(f"Deleted: {f}")
-#         except Exception as e:
-#            print(f"Failed to delete: {f}: {e}")
-#
 
 ##################################################################################
 #
@@ -472,9 +415,7 @@ def change_backend(backend, existing_workspaces, workspace, documentation, uploa
 ##################################################################################
 def upload_file(filepath, documentation, existing_workspaces):
    name = Path(filepath).name
-#   print("Uploading file:" + filepath)
    print("name:" + name)
-#   print("filepath.name:" + name)
 
    #rc = name + ":"
    backend = get_backend()
@@ -595,9 +536,7 @@ if __name__ == "__main__":
                     inputs=[
                        model, element, subsystem, format_gen, workspace, documentation, temperature, topp, max_tokens, num_tests, role, type,
                     ],
-                    #outputs=output_list,
                     outputs=[html_box, json_box, text_box, col1, download_btn],
-                    #outputs=[html_box, col1, download_btn],
                     api_name="TCGen")
 
 
