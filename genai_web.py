@@ -21,20 +21,20 @@ from backend_sd import BackendSingleDoc
 
 from langchain_core.prompts import PromptTemplate
 
-DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
-DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
-PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
-PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
+#DEFAULT_WORKSPACE = "e3a39d26-007d-4386-a6c3-86fa3a362857"
+#DEFAULT_DOCUMENT_ID = "ECN_MED_NFS_v1.docx"
+#PROMPT_ELEMENT_TEMPLATE = """Parallel Ringing"""
+#PROMPT_FOCUS_TEMPLATE = "Focus on the area Multiple Early Dialogue"
 
 #DEFAULT_WORKSPACE = "8dac89ca-e319-4cfd-86c8-c8279c118904"
 #DEFAULT_DOCUMENT_ID = "ARC-Backup-Restore-HLD.docx"
 #PROMPT_ELEMENT_TEMPLATE = """HLR"""
 #PROMPT_FOCUS_TEMPLATE = "Focus on the area Backup and Restore"
 
-#DEFAULT_WORKSPACE = ""
-#DEFAULT_DOCUMENT_ID = ""
-#PROMPT_ELEMENT_TEMPLATE = """element"""
-#PROMPT_FOCUS_TEMPLATE = "Focus on the area "
+DEFAULT_WORKSPACE = ""
+DEFAULT_DOCUMENT_ID = ""
+PROMPT_ELEMENT_TEMPLATE = """element"""
+PROMPT_FOCUS_TEMPLATE = "Focus on the area "
 
 
 g_backend = Backend.GENERATIVE_ENGINE
@@ -45,8 +45,6 @@ UI_PASSWORD = os.environ['UI_PASSWORD']
 UI_USER = os.environ['UI_USER']
 SD_BACKEND_URL = os.environ['SD_BACKEND_URL']
 GE_BACKEND_URL = os.environ['GE_BACKEND_URL']
-#SD_BACKEND_URL = "http://192.168.0.121:5000"
-#GE_BACKEND_URL = "wss://datw9crxl8.execute-api.us-east-1.amazonaws.com/socket/"
 
 
 TESTS_PER_CALL = 10
@@ -541,5 +539,5 @@ if __name__ == "__main__":
 
 
    #demo.launch(share=True, server_name="0.0.0.0")
-   #demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
-   demo.launch(server_name="0.0.0.0")
+   demo.launch(server_name="0.0.0.0", auth=(UI_USER, UI_PASSWORD))
+   #demo.launch(server_name="0.0.0.0")
